@@ -53,7 +53,13 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
 
         Settings = new ModConfig(configFile);
 
-        Sync.WatchForChanges(configFile).Start();
+        // Server.LockConfiguration promised "connected clients use the server's
+        // spawner settings" but was never read - the old in-mod sync had no gate at
+        // all, so the knob did nothing. Wired to the send side, matching the
+        // identically-named setting in Haldor Expansion.
+        Sync.GatedBy(() => Settings == null || Settings.LockConfiguration)
+            .WatchForChanges(configFile)
+            .Start();
 
         harmony.PatchAll(Assembly.GetExecutingAssembly());
         Dbgl($"Loaded {PluginName} {Version}");

@@ -30,6 +30,7 @@ Valheim/
         ├── CombatAdjustments.ShieldRework.dll
         ├── CraftableSpawners.dll
         ├── HaldorExpansion.dll
+        ├── MushroomSync.dll          <- required by the four above
         ├── RandomYggdrasil.dll
         ├── SeparateSpawns.dll
         └── VegvisirCompass.dll

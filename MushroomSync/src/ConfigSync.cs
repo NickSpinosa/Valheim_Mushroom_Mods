@@ -41,6 +41,15 @@ namespace MushroomSync
 
         private readonly HashSet<ConfigFile> _watchedFiles = new HashSet<ConfigFile>();
 
+        /// <summary>
+        /// Whether host values are currently in force, tracked here rather than read
+        /// back off the channel. The channel raises its own flag before calling into
+        /// ReadPayload - it has to, so values applied during the read see them - which
+        /// means the channel cannot answer "is this the first payload?" from inside
+        /// one.
+        /// </summary>
+        private bool _hasHostValues;
+
         private readonly SyncChannel _channel;
         private readonly ManualLogSource _log;
         private readonly string _id;
@@ -309,12 +318,13 @@ namespace MushroomSync
                 typed[entry] = value;
             }
 
-            bool firstActivation = !_channel.ClientSyncActive;
+            bool firstActivation = !_hasHostValues;
 
             _syncedValues.Clear();
             foreach (KeyValuePair<ConfigEntryBase, object> pair in typed)
                 _syncedValues[pair.Key] = pair.Value;
 
+            _hasHostValues = true;
             RaiseApplied();
 
             if (firstActivation)
@@ -334,6 +344,9 @@ namespace MushroomSync
         private void OnCleared(string reason)
         {
             _syncedValues.Clear();
+            // Reset so rejoining a host announces itself again rather than reporting
+            // an "update" for what is, to the player, a fresh sync.
+            _hasHostValues = false;
             RaiseApplied();
             _log.LogInfo(_id + ": host configuration dropped (" + reason + "); using local settings.");
 

@@ -118,6 +118,12 @@ sealed class ModConfig
         entry.SettingChanged += (_, _) => SpawnerSetup.RefreshFromConfig();
     }
 
+    /// <summary>
+    /// Host-side switch: whether this machine publishes its spawner settings when it
+    /// is the server. Not synced itself, so a client keeps its own answer.
+    /// </summary>
+    internal bool LockConfiguration => lockConfiguration.Value;
+
     internal bool EnableDebugMessages => enableDebugMessages.Value;
 
     internal bool IsEnabled(SpawnerId id) => id switch

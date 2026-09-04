@@ -112,6 +112,16 @@ The cost of the earlier flag is that a throw part-way through `ReadPayload` leav
 half-applied state, so the catch clears unconditionally rather than only when a sync
 was already established.
 
+There is a second, quieter cost, and it caught this code once already: **nothing
+inside `ReadPayload` can ask the channel whether this is the first payload**, because
+by then the answer is always "no". `ConfigSync` therefore tracks `_hasHostValues`
+itself, set after a successful apply and cleared when the sync drops. Sampling
+`ClientSyncActive` instead makes "first activation" permanently false, which costs no
+correctness — the overlay and the ObjectDB bake are unaffected — but silently loses
+the player-facing toast on joining a server, and makes the log always say "updated"
+even the first time. A read-only symptom of a state-ordering bug is exactly the kind
+that survives review.
+
 ### Patched per type, on demand
 
 The original patched `ConfigEntry<T>.Value` for a fixed four: `bool`, `int`, `float`,
