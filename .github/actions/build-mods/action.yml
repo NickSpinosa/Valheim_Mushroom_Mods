@@ -25,6 +25,11 @@ outputs:
   artifacts-dir:
     description: Directory holding one DLL per mod.
     value: release-artifacts
+  package:
+    description: >-
+      Zip holding a plugins/ folder with every mod's DLL. Extracting it into a
+      Valheim BepInEx/ directory installs the lot.
+    value: MushroomMods-plugins.zip
 
 runs:
   using: composite
@@ -187,3 +192,30 @@ runs:
         }
 
         Get-ChildItem $out -Filter *.dll | Format-Table Name, Length
+
+    - name: Package the plugins folder
+      shell: pwsh
+      run: |
+        # Produced for every build, not only releases, so a reviewer can install a
+        # PR the same way a player installs a release - and so CI exercises this
+        # packaging step rather than leaving it to be discovered at release time.
+        $dlls = Get-ChildItem 'release-artifacts' -Filter *.dll | Sort-Object Name
+        if (-not $dlls) { throw 'No DLLs to package.' }
+
+        $zipPath = Join-Path $env:GITHUB_WORKSPACE 'MushroomMods-plugins.zip'
+
+        # Entry names are written explicitly with forward slashes. Compress-Archive
+        # and ZipFile::CreateFromDirectory both emit backslashes on .NET Framework,
+        # which violates the zip spec and some extractors read as one long filename.
+        Add-Type -AssemblyName System.IO.Compression
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [IO.Compression.ZipFile]::Open($zipPath, 'Create')
+        try {
+          foreach ($dll in $dlls) {
+            $null = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $dll.FullName, "plugins/$($dll.Name)")
+          }
+        } finally { $zip.Dispose() }
+
+        $entries = [IO.Compression.ZipFile]::OpenRead($zipPath).Entries | ForEach-Object { $_.FullName }
+        Write-Host "MushroomMods-plugins.zip contains $($entries.Count) file(s):"
+        $entries | ForEach-Object { Write-Host "  $_" }

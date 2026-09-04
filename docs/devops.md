@@ -5,7 +5,7 @@ before you rely on it.
 
 | | |
 |---|---|
-| [`.github/actions/build-mods`](../.github/actions/build-mods/action.yml) | Fetches the reference assemblies and builds every mod. All the real logic lives here |
+| [`.github/actions/build-mods`](../.github/actions/build-mods/action.yml) | Fetches the reference assemblies, builds every mod, and packages the DLLs. All the real logic lives here |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — **CI** | Compile check on every push and pull request |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) — **Build mod DLLs** | Same build, plus packaging the DLLs and attaching them to a release |
 
@@ -15,8 +15,20 @@ built lands in both at once. Only the release upload is workflow-specific.
 ## Compile checks
 
 Pushes and pull requests run **CI** automatically — no action needed. It builds
-every mod and fails on the first one that does not compile, and keeps the DLLs
-as a 7-day artifact if you want to grab a dev build.
+every mod and fails on the first one that does not compile.
+
+On a pull request it also **comments with a link to the build**, so a reviewer
+can test the branch without hunting through the Actions tab. The artifact is
+`MushroomMods-plugins.zip` — the same package a release ships — kept for 14
+days. The comment is rewritten on each push rather than added to, so the PR does
+not fill with build links.
+
+GitHub wraps every artifact in a zip of its own, so a downloaded build has two
+layers to unpack: the artifact zip, then `MushroomMods-plugins.zip` inside it.
+
+The comment is skipped for pull requests from forks. Those runs get a read-only
+token, and attempting to comment would fail the job as though the build were
+broken.
 
 Documentation-only changes are skipped via `paths-ignore` (`**.md`, `docs/**`,
 `LICENSE`), and a newer push to the same branch cancels an in-flight run.
@@ -73,6 +85,9 @@ The zip contains a single `plugins/` folder holding every mod's DLL, so
 extracting it into a Valheim `BepInEx/` directory installs the lot in one step.
 A release asset is always a file, never a directory — the zip is how a folder
 gets attached.
+
+The zip is built by the shared composite action, so a CI build and a release ship
+byte-identical packaging.
 
 Its entry names are written with explicit forward slashes. Both
 `Compress-Archive` and `ZipFile::CreateFromDirectory` emit **backslashes** on

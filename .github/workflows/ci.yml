@@ -17,6 +17,8 @@ on:
 
 permissions:
   contents: read
+  # To leave the "build ready to test" comment on a pull request.
+  pull-requests: write
 
 # A newer push to the same branch makes an in-flight run redundant.
 concurrency:
@@ -34,10 +36,54 @@ jobs:
 
       - uses: ./.github/actions/build-mods
 
+      # The same zip a release ships, so testing a PR build is the same motion as
+      # installing a release: extract it into BepInEx/.
       - name: Upload build output
+        id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: mod-dlls-${{ github.sha }}
-          path: release-artifacts/*.dll
+          name: mod-plugins-${{ github.sha }}
+          path: MushroomMods-plugins.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
+
+      # Artifacts are otherwise buried in the Actions run, which is a lot of
+      # clicking for a reviewer who just wants to try the build.
+      #
+      # Skipped for pull requests from forks: those runs get a read-only token, so
+      # commenting would fail the job rather than the build actually being broken.
+      - name: Link the build on the pull request
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $short = $env:COMMIT.Substring(0, 7)
+          $body = @(
+            '### Build ready to test',
+            '',
+            "[**MushroomMods-plugins.zip**]($env:ARTIFACT_URL) - built from ``$short``.",
+            '',
+            'Download and extract it, then drop the `plugins` folder into your Valheim',
+            '`BepInEx/` directory - on every client and on the dedicated server. It is the',
+            'same package a release ships.',
+            '',
+            'GitHub wraps artifacts in a zip of their own, so there are two layers to',
+            'unpack. Expires in 14 days.',
+            '',
+            '<sub>Updated automatically on each push to this PR.</sub>'
+          ) -join "`n"
+
+          # Rewrite the existing comment rather than adding one per push, so the PR
+          # does not fill with near-identical build links.
+          gh pr comment $env:PR_NUMBER --body $body --edit-last
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host 'No previous comment to edit; creating one.'
+            gh pr comment $env:PR_NUMBER --body $body
+            if ($LASTEXITCODE -ne 0) { throw 'Could not comment on the pull request.' }
+          }

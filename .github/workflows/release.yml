@@ -29,32 +29,8 @@ jobs:
 
       - uses: ./.github/actions/build-mods
 
-      - name: Package the plugins folder
-        shell: pwsh
-        run: |
-          # A release asset is a file, never a directory, so the plugins folder
-          # ships as a zip that contains it. Extracting the zip into BepInEx/
-          # lands every mod in BepInEx/plugins/ in one step.
-          $dlls = Get-ChildItem 'release-artifacts' -Filter *.dll | Sort-Object Name
-          if (-not $dlls) { throw 'No DLLs to package.' }
-
-          $zipPath = Join-Path $env:GITHUB_WORKSPACE 'MushroomMods-plugins.zip'
-
-          # Entry names are written explicitly with forward slashes. Compress-Archive
-          # and ZipFile::CreateFromDirectory both emit backslashes on .NET Framework,
-          # which violates the zip spec and some extractors read as one long filename.
-          Add-Type -AssemblyName System.IO.Compression
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = [IO.Compression.ZipFile]::Open($zipPath, 'Create')
-          try {
-            foreach ($dll in $dlls) {
-              $null = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $dll.FullName, "plugins/$($dll.Name)")
-            }
-          } finally { $zip.Dispose() }
-
-          $entries = [IO.Compression.ZipFile]::OpenRead($zipPath).Entries | ForEach-Object { $_.FullName }
-          Write-Host "MushroomMods-plugins.zip contains $($entries.Count) file(s):"
-          $entries | ForEach-Object { Write-Host "  $_" }
+      # The plugins zip is built by the composite action, so CI and releases ship
+      # byte-identical packaging and CI proves the step still works.
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
