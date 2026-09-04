@@ -34,8 +34,12 @@ namespace HaldorExpansion
 
             Settings = new ModConfig(Config);
 
-            // LockConfiguration is the opt-out, so it gates sending and is never
-            // itself synced - a client must be able to keep its own answer.
+            // LockConfiguration is a host-side switch: it decides whether this
+            // machine publishes its item settings when it is the server. It is
+            // deliberately not an accept-side gate - a client with it off still
+            // follows a host that has it on, which is what the old in-mod sync did
+            // and what docs/DESIGN.md describes. It is never itself synced, so a
+            // client keeps its own answer.
             Sync.GatedBy(() => Settings == null || Settings.LockConfiguration)
                 .WatchForChanges(Config)
                 .Start();

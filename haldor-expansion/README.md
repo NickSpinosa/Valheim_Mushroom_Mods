@@ -13,6 +13,12 @@ See [DESIGN.md](docs/DESIGN.md) for the full design and the reasoning behind eac
 The build copies `HaldorExpansion.dll` into `<ValheimDir>\BepInEx\plugins`.
 Set `CopyToPlugins` to `false` in `Local.props` to skip that.
 
+**Also needs `MushroomSync.dll`** in `BepInEx/plugins`, the shared
+server-authoritative sync plugin. This mod declares a `[BepInDependency]` on it and
+**will not load without it**. `dotnet build` builds it, but only `HaldorExpansion.dll`
+is auto-copied — take `MushroomSync/bin/Release/MushroomSync.dll` across yourself, or
+use the release's `MushroomMods-plugins.zip`, which carries both.
+
 ## Status: unverified
 
 Prices, the Ashlands global key spelling, and the prefab IDs are **provisional**.

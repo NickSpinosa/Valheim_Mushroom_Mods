@@ -93,6 +93,25 @@ is the one that matters:
 The depth is `[ThreadStatic]` — config can be read off the main thread, and a
 suppression leaking across threads would silently disable the overlay.
 
+### The active flag goes up before the payload is read
+
+`SyncChannel` sets `ClientSyncActive` *before* calling `ReadPayload`, not after.
+
+This looks like a detail and is not. Callers apply values from inside `ReadPayload` —
+Combat Adjustments bakes shield, weapon and feast stats into `ObjectDB`, Craftable
+Spawners rebuilds spawner drop tables, Random Yggdrasil rotates the tree. All of them
+read `entry.Value`, and both the overlay and `TryGetSyncedValue` gate on that flag.
+
+Set the flag afterwards and the first payload after a join is applied while
+`entry.Value` still returns the client's own config. Later reads are correct, so it
+looks fine — but whatever was baked during that first apply stays wrong until some
+later broadcast happens to redo it. A client would join a server and quietly play with
+its own shield numbers.
+
+The cost of the earlier flag is that a throw part-way through `ReadPayload` leaves a
+half-applied state, so the catch clears unconditionally rather than only when a sync
+was already established.
+
 ### Patched per type, on demand
 
 The original patched `ConfigEntry<T>.Value` for a fixed four: `bool`, `int`, `float`,
@@ -118,6 +137,22 @@ not need to bump it, because its own version string already differs.
 
 Payloads are compressed. Config payloads are highly repetitive strings and this runs
 during login, when the connection is busiest.
+
+### This is not a silent upgrade
+
+The RPC names changed (`<id>.Sync`, `<id>.SyncRequest`) and the protocol went to 2, so
+**a pre-MushroomSync build and a post-MushroomSync build of the same mod will not talk
+to each other.** The old build never registered the new RPC names, so it does not
+receive anything — there is no handshake to fail and no error to see. It looks exactly
+like "sync stopped working".
+
+That is acceptable because the mods ship together in one zip: extract
+`MushroomMods-plugins.zip` on the server and on every client and everything matches.
+It is worth knowing about for a *staged* rollout, where a server updates before its
+players do. Update both ends together.
+
+The mod-version handshake catches the narrower case of two different post-MushroomSync
+builds, and logs it.
 
 Config entries are written in a deterministic order, so an unchanged config produces
 an identical payload and packet dumps are comparable between runs.

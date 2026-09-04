@@ -67,9 +67,6 @@ namespace MushroomSync
         /// </summary>
         public static bool IsServerAuthority() => SyncChannel.IsServerAuthority();
 
-        /// <summary>The underlying channel, for mods that also push their own data.</summary>
-        public SyncChannel Channel => _channel;
-
         public static ConfigSync Create(string id, string version, ManualLogSource log)
         {
             return new ConfigSync(id, version, log);
@@ -104,12 +101,24 @@ namespace MushroomSync
         }
 
         /// <summary>
-        /// Gates syncing on a setting, e.g. an opt-out toggle. Returning false makes
-        /// the server send nothing and a client ignore anything that arrives.
+        /// Host-side switch: returning false makes this machine publish nothing when
+        /// it is the server. It does not stop this machine following a host when it
+        /// is a client - see <see cref="AcceptedWhen"/> for that.
         /// </summary>
         public ConfigSync GatedBy(Func<bool> gate)
         {
             _channel.SendGate = gate;
+            return this;
+        }
+
+        /// <summary>
+        /// Client-side opt-out: returning false makes this machine ignore host values
+        /// and keep its own. Pass the same predicate to both this and
+        /// <see cref="GatedBy"/> for a setting that means "do not sync at all".
+        /// </summary>
+        public ConfigSync AcceptedWhen(Func<bool> gate)
+        {
+            _channel.AcceptGate = gate;
             return this;
         }
 

@@ -65,9 +65,14 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
         // Created before any Bind so ShieldStats can register grant entries as it
         // discovers shields.
+        // SyncConfigInMultiplayer means "do not sync at all", so it gates both
+        // directions: this machine publishes nothing when hosting, and ignores host
+        // values when connected. The old in-mod ConfigSync checked it on both sides
+        // too.
         Sync = ConfigSync.Create(PluginGuid, PluginVersion, Logger)
             .Protecting(ModConfig)
             .GatedBy(() => SyncConfigInMultiplayer == null || SyncConfigInMultiplayer.Value)
+            .AcceptedWhen(() => SyncConfigInMultiplayer == null || SyncConfigInMultiplayer.Value)
             .OnApplied(ApplyRuntimeFromConfig)
             .Notifying(NotifyPlayer);
 

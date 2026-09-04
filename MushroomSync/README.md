@@ -62,6 +62,26 @@ Sync.Exclude(GrantTableVersion);         // server-only bookkeeping
 
 An excluded entry is never sent and never overlaid.
 
+### Opting out
+
+Two gates, deliberately separate:
+
+```csharp
+Sync.GatedBy(() => LockConfiguration.Value);      // host: publish, or stay quiet
+Sync.AcceptedWhen(() => SyncEnabled.Value);       // client: follow a host, or not
+```
+
+`GatedBy` is a **host-side switch** — it decides whether this machine publishes when
+it is the server. Haldor Expansion uses only this: a client with `LockConfiguration`
+off still follows a host that has it on.
+
+`AcceptedWhen` is a **client-side opt-out**. Combat Adjustments passes the same
+predicate to both, because its `SyncConfigInMultiplayer` means "do not sync at all".
+
+Conflating the two is a bug worth naming: a host-side switch that also refused
+incoming values would stop a client following a server merely because that client
+would not have shared its own settings when hosting.
+
 ### Pushing your own data
 
 For anything that is not a config entry, use the channel directly — this is what

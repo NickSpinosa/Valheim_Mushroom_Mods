@@ -17,7 +17,7 @@
 - **Material refund:** Full recipe refund on **both** hammer remove and combat destruction.
 - **Placement:** Ground-only; no biome restriction.
 - **Unlock retroactivity:** If the player already knows/discovered the relevant trophy, unlock that spawner immediately on load (not only on a new pickup).
-- **Config:** BepInEx config file named `CraftableSpawners` (i.e. `CraftableSpawners.cfg`). Values sync between server and clients (ServerSync).
+- **Config:** BepInEx config file named `CraftableSpawners` (i.e. `CraftableSpawners.cfg`). Values sync between server and clients through the shared [MushroomSync](../../MushroomSync/README.md) plugin. ServerSync was removed - it wrapped login sockets and broke on a Valheim update - and this mod carried its own replacement until that was factored out.
   - Client path: `Valheim/BepInEx/config/CraftableSpawners.cfg`
   - Dedicated server path: `Valheim/config/bepinex/CraftableSpawners.cfg` (fallback when client file is missing; overlays client when both exist)
   - **v1 config contents:** enable/disable each of the spawners; recipe ingredient amounts (proposed numbers as defaults).
@@ -51,8 +51,8 @@
 
 - Plugin GUID: `Gonfreecss.CraftableSpawners`
 - Config file paths:
-  - Client: `Valheim/BepInEx/config/CraftableSpawners.cfg` (ServerSync, client save target)
+  - Client: `Valheim/BepInEx/config/CraftableSpawners.cfg` (client save target; host values are applied at runtime and never written here)
   - Dedicated server: `Valheim/config/bepinex/CraftableSpawners.cfg` (server save target / fallback)
-- Build: Release via Visual Studio MSBuild (ILRepacks ServerSync into the plugin DLL)
-- Output: `bin/Release/CraftableSpawners.dll` → copy to `BepInEx/plugins/`
+- Build: `dotnet build -c Release`. Also builds MushroomSync, which this mod references and cannot load without. ILRepack no longer merges anything — `ILRepack.targets` records that ServerSync was removed.
+- Output: `bin/Release/CraftableSpawners.dll` **and** `MushroomSync/bin/Release/MushroomSync.dll` → copy both to `BepInEx/plugins/`, or use the release's `MushroomMods-plugins.zip`
 - Clone prefab names: `CS_BonePileSpawner`, `CS_GreydwarfNest`, `CS_DraugrPile`, `CS_FirePillar`, `CS_TarBonePile`

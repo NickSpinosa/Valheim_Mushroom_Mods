@@ -52,10 +52,16 @@ Boss unlocks are **not** configurable.
 ## Install
 
 1. Requires [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) for Valheim.
-2. Build: `dotnet build src/CombatAdjustments.ShieldRework -c Release`
-3. Copy `src/CombatAdjustments.ShieldRework/bin/Release/CombatAdjustments.ShieldRework.dll`
-   into `Valheim/BepInEx/plugins/`.
-4. Launch once to generate `BepInEx/config/Abortipus.CombatAdjustments.ShieldRework.cfg`
+2. **Requires `MushroomSync.dll`**, the shared server-authoritative sync plugin.
+   This mod declares a `[BepInDependency]` on it and **will not load without it**.
+3. Build: `dotnet build src/CombatAdjustments.ShieldRework -c Release` — this also
+   builds MushroomSync, which it references.
+4. Copy **both** into `Valheim/BepInEx/plugins/`:
+   - `src/CombatAdjustments.ShieldRework/bin/Release/CombatAdjustments.ShieldRework.dll`
+   - `MushroomSync/bin/Release/MushroomSync.dll`
+
+   Or take the release's `MushroomMods-plugins.zip`, which carries both.
+5. Launch once to generate `BepInEx/config/Abortipus.CombatAdjustments.ShieldRework.cfg`
    (or place server settings in `config/bepinex/Abortipus.CombatAdjustments.ShieldRework.cfg`).
 
 ## Config

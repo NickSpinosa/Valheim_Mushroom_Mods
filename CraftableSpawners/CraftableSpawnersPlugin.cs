@@ -28,7 +28,7 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
     public const string Version = "0.2.0";
 
     internal static ManualLogSource Log = new($" {PluginName}");
-    internal static ModConfig ConfigSyncWrapper;
+    internal static ModConfig Settings;
     internal static bool HammerRemoving;
 
     /// <summary>
@@ -51,7 +51,7 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
             .Protecting(configFile)
             .OnApplied(SpawnerSetup.RefreshFromConfig);
 
-        ConfigSyncWrapper = new ModConfig(configFile);
+        Settings = new ModConfig(configFile);
 
         Sync.WatchForChanges(configFile).Start();
 
@@ -61,7 +61,7 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
 
     internal static void Dbgl(string message, bool forceLog = false)
     {
-        if (forceLog || ConfigSyncWrapper is { EnableDebugMessages: true })
+        if (forceLog || Settings is { EnableDebugMessages: true })
             Log.LogInfo(message);
     }
 }

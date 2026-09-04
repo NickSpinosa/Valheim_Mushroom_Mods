@@ -74,11 +74,24 @@ namespace MushroomSync
         public Action<string> Cleared { get; set; }
 
         /// <summary>
-        /// Gates sending. Return false and the server stays quiet - used for an
-        /// opt-out setting such as haldor-expansion's LockConfiguration. Defaults
-        /// to always sending.
+        /// Gates sending, on the server. Return false and the host publishes
+        /// nothing - a host-side switch such as haldor-expansion's
+        /// LockConfiguration. Defaults to always sending.
         /// </summary>
         public Func<bool> SendGate { get; set; }
+
+        /// <summary>
+        /// Gates accepting, on a client. Return false and incoming payloads are
+        /// ignored and any current sync dropped - a client-side opt-out such as
+        /// Combat Adjustments' SyncConfigInMultiplayer. Defaults to always
+        /// accepting.
+        ///
+        /// Deliberately separate from <see cref="SendGate"/>: a host-side switch
+        /// that also silently refused incoming values would stop a client
+        /// following a server just because that client would not have shared its
+        /// own settings when hosting.
+        /// </summary>
+        public Func<bool> AcceptGate { get; set; }
 
         /// <summary>
         /// True when this side decides its own values: a dedicated server, a host,
@@ -255,9 +268,9 @@ namespace MushroomSync
             if (ReadPayload == null)
                 return;
 
-            if (SendGate != null && !SendGate())
+            if (AcceptGate != null && !AcceptGate())
             {
-                ClearClientState("disabled locally");
+                ClearClientState("declined locally");
                 return;
             }
 
@@ -276,15 +289,24 @@ namespace MushroomSync
                 }
 
                 ZPackage payload = envelope.ReadCompressedPackage();
-                ReadPayload(payload);
+
+                // Set before the read, not after. Callers apply values from inside
+                // ReadPayload - baking them into ObjectDB, say - and both the
+                // ConfigEntry overlay and TryGetSyncedValue gate on this flag.
+                // Setting it afterwards means the first payload after a join is
+                // applied while entry.Value still returns the client's own config,
+                // leaving that baked state wrong until some later broadcast.
                 _clientSyncActive = true;
+                ReadPayload(payload);
             }
             catch (Exception ex)
             {
-                bool wasActive = _clientSyncActive;
+                // Roll back. Because the flag goes up first, a throw part-way
+                // through can leave the caller holding a mix of host and local
+                // values, so clear unconditionally rather than only when a sync was
+                // already established.
                 _clientSyncActive = false;
-                if (wasActive)
-                    InvokeCleared("invalid payload");
+                InvokeCleared("invalid payload");
                 _log.LogWarning(_id + ": sync failed: " + ex.Message);
             }
         }
