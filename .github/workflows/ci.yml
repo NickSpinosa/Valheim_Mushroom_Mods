@@ -50,6 +50,12 @@ jobs:
       # Artifacts are otherwise buried in the Actions run, which is a lot of
       # clicking for a reviewer who just wants to try the build.
       #
+      # The previous comment is deleted and a new one posted, rather than edited in
+      # place. GitHub anchors an edited comment at its original position, so on a PR
+      # with later commits it sits above them looking like it describes an older
+      # build. Deleting and reposting keeps exactly one comment and keeps it at the
+      # bottom, where the latest build belongs.
+      #
       # Skipped for pull requests from forks: those runs get a read-only token, so
       # commenting would fail the job rather than the build actually being broken.
       - name: Link the build on the pull request
@@ -63,8 +69,14 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           COMMIT: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Hidden marker so we find our own comment rather than whichever comment
+          # the bot happened to post last - another workflow commenting would
+          # otherwise make us clobber it.
+          $marker = '<!-- mushroom-build-link -->'
           $short = $env:COMMIT.Substring(0, 7)
+
           $body = @(
+            $marker,
             '### Build ready to test',
             '',
             "[**MushroomMods-plugins.zip**]($env:ARTIFACT_URL) - built from ``$short``.",
@@ -76,14 +88,24 @@ jobs:
             'GitHub wraps artifacts in a zip of their own, so there are two layers to',
             'unpack. Expires in 14 days.',
             '',
-            '<sub>Updated automatically on each push to this PR.</sub>'
+            '<sub>Reposted on each push, so this always describes the latest commit.</sub>'
           ) -join "`n"
 
-          # Rewrite the existing comment rather than adding one per push, so the PR
-          # does not fill with near-identical build links.
-          gh pr comment $env:PR_NUMBER --body $body --edit-last
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host 'No previous comment to edit; creating one.'
-            gh pr comment $env:PR_NUMBER --body $body
-            if ($LASTEXITCODE -ne 0) { throw 'Could not comment on the pull request.' }
+          # Matching is done here rather than with --jq: the marker contains spaces
+          # and a leading "--", which the shell reads as a flag when it is embedded
+          # in a jq expression passed to gh.
+          $raw = gh api "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" --paginate --slurp
+          if ($LASTEXITCODE -ne 0) { throw 'Could not list pull request comments.' }
+
+          $comments = @()
+          foreach ($page in ($raw | ConvertFrom-Json)) { $comments += $page }
+
+          $stale = @($comments | Where-Object { $_.body -and $_.body.StartsWith($marker) })
+          foreach ($comment in $stale) {
+            gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/issues/comments/$($comment.id)" | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Host "Could not delete comment $($comment.id); leaving it." }
+            else { Write-Host "Removed previous build comment $($comment.id)." }
           }
+
+          gh pr comment $env:PR_NUMBER --body $body
+          if ($LASTEXITCODE -ne 0) { throw 'Could not comment on the pull request.' }

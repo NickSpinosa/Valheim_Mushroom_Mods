@@ -20,8 +20,17 @@ every mod and fails on the first one that does not compile.
 On a pull request it also **comments with a link to the build**, so a reviewer
 can test the branch without hunting through the Actions tab. The artifact is
 `MushroomMods-plugins.zip` — the same package a release ships — kept for 14
-days. The comment is rewritten on each push rather than added to, so the PR does
-not fill with build links.
+days.
+
+Each push deletes the previous build comment and posts a new one, so there is
+only ever one and it sits at the bottom of the thread. Editing in place was
+tried first and reads as stale: GitHub anchors an edited comment at its original
+position, so it ends up above later commits, describing what looks like an older
+build.
+
+The comment is found by a hidden `<!-- mushroom-build-link -->` marker rather
+than by "the last comment the bot posted", so another workflow commenting cannot
+make CI clobber the wrong one.
 
 GitHub wraps every artifact in a zip of its own, so a downloaded build has two
 layers to unpack: the artifact zip, then `MushroomMods-plugins.zip` inside it.
