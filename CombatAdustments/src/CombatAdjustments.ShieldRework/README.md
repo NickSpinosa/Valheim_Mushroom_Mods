@@ -31,6 +31,24 @@ Every grant is overridable in `BepInEx/config` (client) or `config/bepinex` (ded
   **adrenaline per enemy hit**, matching swing attacks (vanilla pays area
   attacks once per slam).
 
+### Feasts
+
+Biome feasts unlock after the **previous** biome boss instead of that biome's
+own boss (Plains after Moder, not Yagluth). Sailor's Bounty still needs a
+serpent. See [`docs/feasts.md`](../../docs/feasts.md).
+
+Every feast also gains extra food stats (configurable; defaults below). Tooltips
+and already-eaten feasts pick up the new numbers.
+
+| Feast | Extra health | Extra stamina | Extra eitr |
+| --- | --- | --- | --- |
+| Most feasts | +10 | +10 | — |
+| Sailor's Bounty | +15 | +15 | — |
+| Mistlands | +10 | +10 | +7 (33 → 40) |
+| Ashlands | +10 | +10 | +12 (38 → 50) |
+
+Boss unlocks are **not** configurable.
+
 ## Install
 
 1. Requires [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) for Valheim.
@@ -62,6 +80,9 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   values when the designed table changes.
 - `Two-Handed Combat.Enable` / `GreatswordPrimaryStaggerMultiplier`
   / `HyperArmorDamageReduction` / `AreaAdrenalinePerEnemy`
+- `Feasts.EnableStatBonuses` / `HealthBonus` / `StaminaBonus` /
+  `SailorsHealthBonus` / `SailorsStaminaBonus` / `MistlandsEitrBonus` /
+  `AshlandsEitrBonus`. Unlock bosses are hardcoded.
 
 ### Multiplayer config sync
 
@@ -97,3 +118,6 @@ No `devcommands` required.
   hide/draw cannot dump the bar.
 - Armor/durability mutate `ItemDrop` shared data when ObjectDB loads, from cached
   vanilla originals so re-entry is idempotent.
+- Feast food stats mutate the same shared data. Spice unlocks rewrite Bog Witch
+  `m_requiredGlobalKey`; Black Forest / Swamp recipes are extra-gated because they
+  share Woodland Herb Blend with Meadows.

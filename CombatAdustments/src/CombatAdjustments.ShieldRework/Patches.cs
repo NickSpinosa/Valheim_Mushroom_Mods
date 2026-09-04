@@ -10,6 +10,7 @@ internal static class ObjectDB_Awake_Patch
     {
         ShieldStats.ApplyToObjectDB(__instance);
         WeaponBlockStats.ApplyToObjectDB(__instance);
+        FeastStats.ApplyToObjectDB(__instance);
     }
 }
 
@@ -20,6 +21,7 @@ internal static class ObjectDB_CopyOtherDB_Patch
     {
         ShieldStats.ApplyToObjectDB(__instance);
         WeaponBlockStats.ApplyToObjectDB(__instance);
+        FeastStats.ApplyToObjectDB(__instance);
     }
 }
 

@@ -14,7 +14,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.4.8";
+    public const string PluginVersion = "0.5.0";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -43,6 +43,14 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<bool> EnableWeaponBlockPerLevel = null!;
     internal static ConfigEntry<int> GrantTableVersion = null!;
     internal static ConfigEntry<string> TooltipColorHex = null!;
+
+    internal static ConfigEntry<bool> EnableFeastStatBonuses = null!;
+    internal static ConfigEntry<float> FeastHealthBonus = null!;
+    internal static ConfigEntry<float> FeastStaminaBonus = null!;
+    internal static ConfigEntry<float> SailorsFeastHealthBonus = null!;
+    internal static ConfigEntry<float> SailorsFeastStaminaBonus = null!;
+    internal static ConfigEntry<float> MistlandsFeastEitrBonus = null!;
+    internal static ConfigEntry<float> AshlandsFeastEitrBonus = null!;
 
     /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
     internal static ConfigSync Sync = null!;
@@ -86,6 +94,21 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         TooltipColorHex = ModConfig.Bind("Tooltip", "StaggerColorHex", "#E85AC8",
             "Hex color for the stagger grant tooltip line (matches HUD stagger pink).");
 
+        EnableFeastStatBonuses = ModConfig.Bind("Feasts", "EnableStatBonuses", true,
+            "Add extra health / stamina / eitr to feast foods. Boss unlocks are not configurable and always apply.");
+        FeastHealthBonus = ModConfig.Bind("Feasts", "HealthBonus", 10f,
+            "Extra max health added to every feast except Sailor's Bounty.");
+        FeastStaminaBonus = ModConfig.Bind("Feasts", "StaminaBonus", 10f,
+            "Extra max stamina added to every feast except Sailor's Bounty.");
+        SailorsFeastHealthBonus = ModConfig.Bind("Feasts", "SailorsHealthBonus", 15f,
+            "Extra max health added to Sailor's Bounty (instead of HealthBonus).");
+        SailorsFeastStaminaBonus = ModConfig.Bind("Feasts", "SailorsStaminaBonus", 15f,
+            "Extra max stamina added to Sailor's Bounty (instead of StaminaBonus).");
+        MistlandsFeastEitrBonus = ModConfig.Bind("Feasts", "MistlandsEitrBonus", 7f,
+            "Extra eitr added to Mushrooms Galore à la Mistlands (vanilla 33 → 40). Also receives HealthBonus / StaminaBonus.");
+        AshlandsFeastEitrBonus = ModConfig.Bind("Feasts", "AshlandsEitrBonus", 12f,
+            "Extra eitr added to Ashlands Gourmet Bowl (vanilla 38 → 50). Also receives HealthBonus / StaminaBonus.");
+
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
@@ -98,13 +121,32 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             HyperArmorDamageReduction,
             AreaAdrenalinePerEnemy,
             EnableWeaponBlockPerLevel,
-            TooltipColorHex);
+            TooltipColorHex,
+            EnableFeastStatBonuses,
+            FeastHealthBonus,
+            FeastStaminaBonus,
+            SailorsFeastHealthBonus,
+            SailorsFeastStaminaBonus,
+            MistlandsFeastEitrBonus,
+            AshlandsFeastEitrBonus);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
         // bookkeeping, and SyncConfigInMultiplayer is the opt-out itself - a client
         // that switched syncing off must keep that answer.
         Sync.Exclude(GrantTableVersion)
             .Exclude(SyncConfigInMultiplayer);
+
+        // Feast bonuses are baked into ObjectDB items, so editing one locally has to
+        // rebuild them. Rebroadcasting to clients is handled by WatchForChanges, and
+        // an incoming host config is handled by OnApplied; this covers only the
+        // local edit.
+        HookFeastConfigChange(EnableFeastStatBonuses);
+        HookFeastConfigChange(FeastHealthBonus);
+        HookFeastConfigChange(FeastStaminaBonus);
+        HookFeastConfigChange(SailorsFeastHealthBonus);
+        HookFeastConfigChange(SailorsFeastStaminaBonus);
+        HookFeastConfigChange(MistlandsFeastEitrBonus);
+        HookFeastConfigChange(AshlandsFeastEitrBonus);
 
         ApplyOverlayToStaticEntries();
 
@@ -129,9 +171,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static string ColorToHex(Color color) => $"#{ColorUtility.ToHtmlStringRGB(color)}";
 
     /// <summary>
-    /// Shield and weapon stats are baked into ObjectDB items, so a config change is
-    /// not enough on its own - the values have to be pushed back into the database.
-    /// Runs when host values arrive and again when they are dropped.
+    /// Shield, weapon and feast stats are baked into ObjectDB items, so a config
+    /// change is not enough on its own - the values have to be pushed back into the
+    /// database. Runs when host values arrive and again when they are dropped.
     /// </summary>
     private static void ApplyRuntimeFromConfig()
     {
@@ -140,6 +182,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
         ShieldStats.ApplyToObjectDB(ObjectDB.instance);
         WeaponBlockStats.ApplyToObjectDB(ObjectDB.instance);
+        FeastStats.ApplyToObjectDB(ObjectDB.instance);
     }
 
     private static void NotifyPlayer(string message)
@@ -148,6 +191,13 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         if (player != null)
             player.Message(MessageHud.MessageType.TopLeft, message, 0, null);
     }
+
+    private static void HookFeastConfigChange<T>(ConfigEntry<T> entry) =>
+        entry.SettingChanged += (_, __) =>
+        {
+            if (ObjectDB.instance != null)
+                FeastStats.ApplyToObjectDB(ObjectDB.instance);
+        };
 
     private static void ApplyOverlayToStaticEntries() =>
         ConfigPaths.ApplyOverlayToStaticEntries(ModConfig);

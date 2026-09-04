@@ -27,7 +27,7 @@ mod does not have it yet.
 
 | Mod | Docs |
 |---|---|
-| CombatAdustments | `docs/shield-rework-requirements.md` |
+| CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md` |
 | CraftableSpawners | `docs/design_decisions.md` |
 | MushroomSync | `docs/DESIGN.md` |
 | Separate Spawns | `docs/CONTEXT.md` |
