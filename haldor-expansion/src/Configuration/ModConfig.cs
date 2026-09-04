@@ -22,7 +22,9 @@ namespace HaldorExpansion
     /// Per-item Enabled / Cost / UnlockBoss settings. Cost is coins per unit; the
     /// trader's purchase price is Cost times the baked stack size. Synced values
     /// (when connected to a server that locks configuration) are read through
-    /// <see cref="TradeConfigSync"/> and never written back into the local .cfg.
+    /// MushroomSync and are never written back into the local .cfg. Reading an
+    /// entry's Value is enough - the overlay returns the host's value when one is in
+    /// force, so no call site here needs to know whether a sync is active.
     /// </summary>
     internal sealed class ModConfig
     {
@@ -37,14 +39,8 @@ namespace HaldorExpansion
         {
             var entry = _configFile.Bind(group, name, value, description);
             if (synchronizedSetting)
-                TradeConfigSync.Register(entry);
+                Plugin.Sync.Register(entry);
             return entry;
-        }
-
-        private static T Get<T>(ConfigEntry<T> entry)
-        {
-            T synced;
-            return TradeConfigSync.TryGetSyncedValue(entry, out synced) ? synced : entry.Value;
         }
 
         internal ModConfig(ConfigFile configFile)
@@ -90,19 +86,10 @@ namespace HaldorExpansion
                         + " appears in Haldor's stock. None means always available."));
 
                 _items[entry.PrefabName] = new ItemConfig(enabled, cost, unlockBoss);
-
-                HookServerBroadcast(enabled);
-                HookServerBroadcast(cost);
-                HookServerBroadcast(unlockBoss);
             }
 
             configFile.Save();
             configFile.SaveOnConfigSet = true;
-        }
-
-        private static void HookServerBroadcast<T>(ConfigEntry<T> entry)
-        {
-            entry.SettingChanged += (_, __) => TradeConfigSync.OnServerConfigChanged();
         }
 
         internal bool LockConfiguration => _lockConfiguration.Value;
@@ -111,7 +98,7 @@ namespace HaldorExpansion
         {
             ItemConfig item;
             if (!_items.TryGetValue(entry.PrefabName, out item)) return true;
-            return Get(item.Enabled);
+            return item.Enabled.Value;
         }
 
         /// <summary>Effective coins per unit, honoring a live server sync.</summary>
@@ -120,7 +107,7 @@ namespace HaldorExpansion
             ItemConfig item;
             if (!_items.TryGetValue(entry.PrefabName, out item)) return entry.PricePerUnit;
 
-            var perUnit = Get(item.Cost);
+            var perUnit = item.Cost.Value;
             return perUnit < 0 ? 0 : perUnit;
         }
 
@@ -135,7 +122,7 @@ namespace HaldorExpansion
         {
             ItemConfig item;
             if (!_items.TryGetValue(entry.PrefabName, out item)) return entry.DefaultUnlockBoss;
-            return Get(item.UnlockBoss);
+            return item.UnlockBoss.Value;
         }
 
         /// <summary>ZoneSystem key for the effective boss gate, or null if ungated.</summary>

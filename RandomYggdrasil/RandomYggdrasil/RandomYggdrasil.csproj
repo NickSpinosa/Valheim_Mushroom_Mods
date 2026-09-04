@@ -92,5 +92,12 @@
   <ItemGroup>
     <None Include="ILRepack.targets" />
   </ItemGroup>
+  <!--
+    Shared server-authoritative sync. Private=false because MushroomSync ships as its
+    own plugin DLL in the release; a copy beside this one would put two on disk.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\MushroomSync\MushroomSync.csproj" Private="false" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

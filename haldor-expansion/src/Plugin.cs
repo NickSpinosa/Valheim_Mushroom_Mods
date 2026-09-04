@@ -1,10 +1,12 @@
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomSync;
 
 namespace HaldorExpansion
 {
     [BepInPlugin(PluginId, PluginName, PluginVersion)]
+    [BepInDependency(MushroomSyncPlugin.PluginGuid)]
     public class Plugin : BaseUnityPlugin
     {
         public const string PluginId = "nicks.haldorexpansion";
@@ -14,16 +16,32 @@ namespace HaldorExpansion
         internal static ManualLogSource Log;
         internal static ModConfig Settings;
 
+        /// <summary>
+        /// Server-authoritative item settings. Created before <see cref="ModConfig"/>
+        /// because binding a setting registers it here.
+        /// </summary>
+        internal static ConfigSync Sync;
+
         private Harmony _harmony;
 
         private void Awake()
         {
             Log = Logger;
+
+            Sync = ConfigSync.Create(PluginId, PluginVersion, Logger)
+                .Protecting(Config)
+                .OnApplied(() => Log.LogInfo("Trade table hash: " + TradeTable.Hash));
+
             Settings = new ModConfig(Config);
+
+            // LockConfiguration is the opt-out, so it gates sending and is never
+            // itself synced - a client must be able to keep its own answer.
+            Sync.GatedBy(() => Settings == null || Settings.LockConfiguration)
+                .WatchForChanges(Config)
+                .Start();
 
             _harmony = new Harmony(PluginId);
             _harmony.PatchAll(typeof(Plugin).Assembly);
-            TradeConfigSync.Initialize(_harmony);
 
             Log.LogInfo(PluginName + " " + PluginVersion + " loaded.");
             Log.LogInfo("Trade table hash: " + TradeTable.Hash

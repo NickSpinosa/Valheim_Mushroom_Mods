@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      net472: the lowest target every consumer can reference. The mods that sync are
+      net472 and net48, so this covers all of them.
+
+      netstandard2.0 would be the more portable choice and was tried first, but the
+      game's UnityEngine assemblies are themselves built against netstandard 2.1, so
+      referencing them from a 2.0 target fails with CS1705. A netstandard2.1 target
+      would compile but could not then be referenced by the net47x/net48 mods.
+
+      Consequence worth knowing: a netstandard2.1 mod (vegvisir-compass) cannot
+      reference this as-is. It has no config to sync today; if that changes, retarget
+      it to net472 alongside the others.
+    -->
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>MushroomSync</AssemblyName>
+    <RootNamespace>MushroomSync</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Mushroom Sync</Product>
+    <Description>Shared server-authoritative sync for the Mushroom mods.</Description>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>portable</DebugType>
+    <Deterministic>true</Deterministic>
+    <!--
+      MSB3277: the game's Mono BCL and the netstandard reference assemblies ship
+      different versions of the same framework assemblies. Only Unity's copies
+      exist at runtime, so the conflict is noise.
+    -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Game and BepInEx assemblies come from the local install. CI passes
+    ValheimManaged and BepInExCore as MSBuild global properties, which override
+    everything here; locally the Steam registry is consulted first so a normal
+    install needs no configuration.
+  -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimManaged Condition="'$(ValheimManaged)' == ''">$(ValheimDir)\valheim_Data\Managed</ValheimManaged>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">$(ValheimDir)\BepInEx\core</BepInExCore>
+  </PropertyGroup>
+
+  <Target Name="CheckValheimRefs" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ValheimManaged)\assembly_valheim.dll')"
+           Text="assembly_valheim.dll not found under '$(ValheimManaged)'. Set ValheimDir to your Valheim install directory." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ValheimManaged)\assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(ValheimManaged)\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ValheimManaged)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCore)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCore)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

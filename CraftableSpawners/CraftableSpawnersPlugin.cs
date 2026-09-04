@@ -5,6 +5,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using CraftableSpawners.Configuration;
 using HarmonyLib;
+using MushroomSync;
 using UnityEngine;
 
 namespace CraftableSpawners;
@@ -19,6 +20,7 @@ public enum SpawnerId
 }
 
 [BepInPlugin(PluginID, PluginName, Version)]
+[BepInDependency(MushroomSyncPlugin.PluginGuid)]
 public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
 {
     public const string PluginID = "Gonfreecss.CraftableSpawners";
@@ -29,6 +31,12 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
     internal static ModConfig ConfigSyncWrapper;
     internal static bool HammerRemoving;
 
+    /// <summary>
+    /// Server-authoritative settings. Created before <see cref="ModConfig"/> because
+    /// binding a setting registers it here.
+    /// </summary>
+    internal static ConfigSync Sync;
+
     private readonly Harmony harmony = new(PluginID);
 
     internal void Awake()
@@ -36,9 +44,18 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
         BepInEx.Logging.Logger.Sources.Add(Log);
 
         ConfigFile configFile = ConfigPaths.CreateMergedConfig();
+
+        // Spawner prefabs bake their drop tables from config, so a change on either
+        // side has to rebuild them - hence OnApplied as well as the local hook.
+        Sync = ConfigSync.Create(PluginID, Version, Log)
+            .Protecting(configFile)
+            .OnApplied(SpawnerSetup.RefreshFromConfig);
+
         ConfigSyncWrapper = new ModConfig(configFile);
+
+        Sync.WatchForChanges(configFile).Start();
+
         harmony.PatchAll(Assembly.GetExecutingAssembly());
-        SpawnerConfigSync.Initialize(harmony);
         Dbgl($"Loaded {PluginName} {Version}");
     }
 
