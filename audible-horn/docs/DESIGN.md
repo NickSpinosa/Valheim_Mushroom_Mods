@@ -526,3 +526,41 @@ a project sets, so the `Condition` blocks simply never fire on a runner.
 
 The practical rule: a new mod here should take its reference block from
 MushroomSync, not from haldor.
+
+## The Assets glob embeds every WAV, including the one you downloaded
+
+`AudibleHorn.csproj` embeds `Assets\**\*.wav`, not `Assets\horn.wav`. That is
+deliberate — the scaffold wanted a glob that tolerates matching nothing — but it
+means the folder is not a workspace. A source recording left next to `horn.wav`
+while it is being converted becomes a second embedded resource: it never gets
+loaded, nothing warns, and the DLL silently grows by the size of the download
+(805 KB, in the case of ticket 07's source, against a 220 KB clip).
+
+So `tools/convert-horn.ps1` reads its source from wherever it is given and the
+convention is that the untouched download is **deleted from `Assets/` the moment
+the conversion succeeds**. `CREDITS.md` says so at the point where the command is
+written down, which is where someone repeating the conversion will actually read
+it.
+
+## Converting audio without ffmpeg
+
+ffmpeg is not on the build machine and is not to be installed, so the entire
+conversion ticket 07 needed — stereo to mono, resample, silence trim, fades,
+normalise — is a plain PowerShell loop over a `byte[]` in
+`tools/convert-horn.ps1`. Two things about that are worth knowing before editing
+it:
+
+- **It is fast enough.** A 3.7 s stereo 48 kHz source converts in under two
+  seconds on PowerShell 5.1. Reaching for `Add-Type` and inline C# to speed it up
+  would trade a readable script for a compile step, for a tool that runs once.
+- **`Join-Path` cannot be used to resolve the arguments.** Handed an already
+  absolute path it returns `C:\cwd\C:\other`, which `GetFullPath` then rejects
+  with "The given path's format is not supported" — an error that names neither
+  argument. `[IO.Path]::Combine` drops the left side when the right side is
+  rooted, which is the behaviour wanted, and the script's `Resolve-FullPath`
+  exists only to make that non-obvious difference explicit.
+
+The resampler is linear interpolation, which is not what a mastering tool would
+do. It is enough here: one horn blast, heard at a distance, through the game's
+own reverb, at a rate ratio close to 1. It only runs at all when the source is
+not already 44.1 kHz.
