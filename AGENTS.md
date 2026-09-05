@@ -31,6 +31,7 @@ mod does not have it yet.
 | CraftableSpawners | `docs/design_decisions.md` |
 | Separate Spawns | `docs/CONTEXT.md` |
 | haldor-expansion | `docs/DESIGN.md` |
+| HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | none yet |
 | vegvisir-compass | none — its design lives in the README's "How it works" |
 
