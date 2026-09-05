@@ -93,6 +93,16 @@
       <HintPath>$(ValheimManaged)\UnityEngine.AudioModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!--
+      Not optional, and not obvious. UnityEngine.AudioModule is built against
+      netstandard 2.1; a net472 target supplies the 2.0 facade, so the moment a type
+      from it is actually used the compiler fails with CS1705. Pointing `netstandard`
+      at the game's own copy is what resolves it. See docs/DESIGN.md.
+    -->
+    <Reference Include="netstandard">
+      <HintPath>$(ValheimManaged)\netstandard.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(ValheimManaged)\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
