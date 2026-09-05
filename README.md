@@ -14,7 +14,7 @@ Mushroom mods are a small collection of utility and quality of life mods designe
 | [Combat Adjustments](CombatAdustments/src/CombatAdjustments.ShieldRework/README.md) | Shield stagger, durability and tower block-armor rework |
 | [Craftable Spawners](CraftableSpawners) | Craftable natural spawners |
 | [Random Yggdrasil](RandomYggdrasil) | Randomises the Yggdrasil branch rotation per world, synced across the server |
-| [Horn of Calling](HornOfCalling/README.md) | Scaffold — adds a craftable item to the Workbench, currently a placeholder Frost Axe |
+| [Horn of Calling](HornOfCalling/README.md) | Craft a horn at the Workbench that sounds a blast other players hear out to 64 m |
 
 ## Installing
 

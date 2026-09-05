@@ -73,6 +73,17 @@ Adding an item by hand is not hard; getting it to happen at the right moment is.
   not live in `ObjectDB` and may not exist yet. Recipe registration is therefore a
   separate idempotent step attempted from all three patch points, returning early and
   retrying while the station is missing.
+- **Network registration needs a retry too, for a different reason.** The three points
+  above all guard against *game* lifecycle ordering. `ZNetScene.Awake` has a second
+  hazard: it is a crowded patch point, and a postfix from another mod that throws aborts
+  the rest of the chain. If that happens before ours runs, the horn and its blast never
+  get their prefab hashes registered, and nothing retries — for the whole session,
+  dropping the horn fails and other clients cannot resolve the blast. Two halves guard
+  it, both copied from vegvisir-compass: `[HarmonyPriority(Priority.First)]` on the
+  shared postfixes so we run before a thrower can get to us, and a `Game.Start` postfix
+  that re-runs all three `Ensure*` calls. `Game.Start` is a *separate patch chain*, which
+  is the entire point — a chain aborted at `ZNetScene.Awake` cannot take it down with it.
+  Every `Ensure*` call is idempotent, so the duplicate pass costs a list scan.
 - **Cloning must not run `Awake`.** The clone is instantiated into an inactive,
   `DontDestroyOnLoad` container so Unity treats it as a prefab rather than a live scene
   object. Borrowed from vegvisir-compass.
@@ -244,6 +255,23 @@ so the object replicates to nearby peers, who instantiate it by hash and hear it
 the reason the effect prefab must be registered with `ZNetScene`; without it the hash is
 unresolvable on every other client.
 
+**Which is why building the prefab must not depend on the audio decoding.** The tempting
+shape is to load the clip first and bail if it fails — a peer with no audio has nothing
+to play, so why build the prefab? Because the prefab is not only a sound: it is a
+networked object whose hash every *other* peer needs to resolve. The peer most likely to
+fail the decode is the headless dedicated server, where `AudioClip.Create`/`SetData` is
+the least exercised path and there is no audio device at all — and that is precisely the
+peer that must be able to resolve a hash every client is spawning at it. So `Attach`
+instantiates, tunes and names the prefab first, then attaches the clip if there is one:
+
+```csharp
+sfx.m_audioClips = clip != null ? new[] { clip } : new AudioClip[0];
+```
+
+`ZSFX.Play()` opens with `m_audioClips.Length != 0`, so an empty array is safe — the
+blast is simply silent. A silent peer is a log line; a peer missing the prefab is a
+networking fault on every peer around it.
+
 That gives two independent ceilings on range:
 
 | Ceiling | Value | Where it comes from |
@@ -310,7 +338,7 @@ build time only — nothing changes at runtime and players need nothing extra.
 
 `m_shared.m_name` is set to the plain string `"Horn of Calling"`, not a `$item_`
 localization token. The mod ships no translation table, and an unresolved token displays in game as
-the literal `$item_frostaxe` rather than failing — a silent, easy-to-miss bug. If
+the literal `$item_hornofcalling` rather than failing — a silent, easy-to-miss bug. If
 localization is added later, the token and the table have to land together.
 
 ## Crafting station lookup

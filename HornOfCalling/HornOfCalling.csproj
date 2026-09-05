@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.PhysicsModule;UnityEngine.AudioModule">
+    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.AudioModule">
       <HintPath>$(ValheimManaged)/%(Identity).dll</HintPath>
       <Private>false</Private>
     </Reference>

@@ -83,9 +83,6 @@ namespace HornOfCalling
 
             if (EffectPrefab == null)
             {
-                AudioClip clip = LoadClip();
-                if (clip == null) return false;
-
                 GameObject template = FindSfxTemplate(shared);
                 if (template == null)
                 {
@@ -98,7 +95,6 @@ namespace HornOfCalling
                 EffectPrefab.name = EffectPrefabName;
 
                 ZSFX sfx = EffectPrefab.GetComponent<ZSFX>();
-                sfx.m_audioClips = new[] { clip };
                 sfx.m_playOnAwake = true;
                 // The template is the mead burp, which is tuned to sound like one: it
                 // waits four to five seconds before playing, drops the pitch by a random
@@ -119,10 +115,22 @@ namespace HornOfCalling
 
                 ShapeFalloff(EffectPrefab.GetComponent<AudioSource>());
 
+                // The clip is attached last, and its absence is tolerated, because the
+                // prefab has to exist on every peer whether or not the audio decoded.
+                // It carries a ZNetView, so a peer that never builds it cannot resolve
+                // the hash of a ZDO every other peer is spawning at it - and the peer
+                // most likely to fail here is the headless server, where AudioClip
+                // decoding is the least exercised. ZSFX.Play() short-circuits on an
+                // empty clip array, so the cost of a failed decode is one silent peer.
+                AudioClip clip = LoadClip();
+                sfx.m_audioClips = clip != null ? new[] { clip } : new AudioClip[0];
+
                 Plugin.Log.LogInfo(
                     "Built the horn blast from " + template.name + " (" +
-                    clip.length.ToString("0.0") + "s, " + clip.frequency + " Hz), audible to " +
-                    MaxDistance.ToString("0") + " m.");
+                    (clip != null
+                        ? clip.length.ToString("0.0") + "s, " + clip.frequency + " Hz"
+                        : "no audio - the blast will be silent on this peer") +
+                    "), audible to " + MaxDistance.ToString("0") + " m.");
             }
 
             // Field-for-field what the vanilla entries carry, so the effect is placed at
