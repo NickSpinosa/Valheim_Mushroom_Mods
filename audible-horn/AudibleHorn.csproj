@@ -1,0 +1,123 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      net472, not netstandard2.1: MushroomSync targets net472 (its csproj explains
+      why it cannot be netstandard2.0), and a net472 assembly cannot reference a
+      netstandard2.1 one. Retargeting either side breaks the other.
+    -->
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>AudibleHorn</AssemblyName>
+    <RootNamespace>AudibleHorn</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Audible Horn</Product>
+    <Description>A craftable Signal Horn whose Horn Call is heard by nearby players.</Description>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <!--
+      CS0649: game assemblies leave fields assigned only by Unity.
+      MSB3277: the game's Mono BCL and the netstandard reference assemblies ship
+      different versions of the same framework assemblies. Only Unity's copies
+      exist at runtime, so the conflict is noise.
+    -->
+    <NoWarn>$(NoWarn);CS0649;MSB3277</NoWarn>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DebugType>portable</DebugType>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+
+  <!--
+    The horn recording is embedded in the DLL so the mod ships as one file with no
+    asset bundle to locate at runtime. The glob is here from the scaffold onwards;
+    MSBuild tolerates it matching nothing until the .wav lands.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\**\*.wav" />
+  </ItemGroup>
+
+  <!--
+    Shared server-authoritative sync. Private=false because MushroomSync ships as
+    its own plugin DLL in the release, so a copy alongside this one would mean two
+    on disk and BepInEx loading the wrong one after an upgrade.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MushroomSync\MushroomSync.csproj" Private="false" />
+  </ItemGroup>
+
+  <!--
+    Game and BepInEx assemblies come from the local install. CI passes ValheimDir
+    (and may pass ValheimManaged / BepInExCore) as MSBuild global properties, which
+    override everything here; locally the Steam registry is consulted first so a
+    normal install needs no configuration.
+  -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimManaged Condition="'$(ValheimManaged)' == ''">$(ValheimDir)\valheim_Data\Managed</ValheimManaged>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">$(ValheimDir)\BepInEx\core</BepInExCore>
+  </PropertyGroup>
+
+  <Target Name="CheckValheimRefs" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ValheimManaged)\assembly_valheim.dll')"
+           Text="assembly_valheim.dll not found under '$(ValheimManaged)'. Set ValheimDir to your Valheim install directory." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ValheimManaged)\assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(ValheimManaged)\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(ValheimManaged)\assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ValheimManaged)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ValheimManaged)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ValheimManaged)\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCore)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCore)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CopyToPluginsFolder" AfterTargets="Build"
+          Condition="'$(CopyToPlugins)' == 'true' And Exists('$(ValheimDir)\BepInEx\plugins')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ValheimDir)\BepInEx\plugins" />
+    <Message Importance="high" Text="Copied $(TargetFileName) -> $(ValheimDir)\BepInEx\plugins" />
+  </Target>
+
+</Project>
