@@ -131,7 +131,7 @@ at that one tree:
 
 | Property | Used by |
 |---|---|
-| `ValheimManaged`, `BepInExCore` | MushroomSync, vegvisir-compass, RandomYggdrasil, SeparateSpawns |
+| `ValheimManaged`, `BepInExCore` | MushroomSync, audible-horn, vegvisir-compass, RandomYggdrasil, SeparateSpawns |
 | `ValheimDir` | CombatAdjustments, haldor-expansion |
 | `GamePath` | CraftableSpawners |
 

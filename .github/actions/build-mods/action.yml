@@ -114,7 +114,11 @@ runs:
             'UnityEngine.InputLegacyModule.dll', 'UnityEngine.IMGUIModule.dll', 'UnityEngine.UI.dll',
             'UnityEngine.TextRenderingModule.dll', 'UnityEngine.AnimationModule.dll',
             'UnityEngine.AudioModule.dll', 'UnityEngine.ParticleSystemModule.dll',
-            'UnityEngine.ImageConversionModule.dll', 'Unity.TextMeshPro.dll'
+            'UnityEngine.ImageConversionModule.dll', 'Unity.TextMeshPro.dll',
+            # audible-horn: UnityEngine.AudioModule is built against netstandard
+            # 2.1, so a net472 project must reference the game's own netstandard
+            # facade or every use of a type from it fails with CS1705.
+            'netstandard.dll'
           )
           'ci-refs\valheim-root\BepInEx\core' = @('BepInEx.dll', '0Harmony.dll', 'BepInEx.Harmony.dll')
         }
