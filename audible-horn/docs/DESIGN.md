@@ -424,3 +424,100 @@ survive a logout and leave the mod believing a dead object was still listening.
 and the `ZNet.Shutdown` postfix clears both — belt and braces, since either one
 alone would do. `Separate Spawns`' `LayoutSync` has the same shape and is where
 it was copied from.
+
+## Why the attack is intercepted in SetControls
+
+The obvious place to catch "the player pressed attack while holding the horn" is
+the attack itself — `Humanoid.StartAttack`, or `Attack.Start`. Both are wrong,
+and the reason is a single block at the very top of `Player.SetControls`:
+
+```csharp
+if ((IsAttached() || InEmote()) && (movedir != Vector3.zero || attack || ...) && GetDoodadController() == null)
+{
+    attack = false; attackHold = false; secondaryAttack = false; secondaryAttackHold = false;
+    StopEmote();
+    AttachStop();
+}
+```
+
+That is what stands a seated player up when they press attack, and it runs
+*before* anything the attack methods would see. The `m_doodadController` block
+immediately after it does the same for a rider, calling `StopDoodadControl()`
+and dismounting the lox. By the time `StartAttack` is reached the input has
+already been spent on leaving the seat, and the attack itself never happens:
+`StartAttack` refuses on `!CanMove()` / `InAttack()` / `InMinorAction()`, and
+`Player.StartEmote` refuses outright on `IsAttached() || IsAttachedToShip()`.
+
+So the vanilla animation path is *unreachable* while attached, and a patch on it
+could never be told that a seated player wanted to sound the horn — it would only
+ever see a player who had just stood up. A prefix on `SetControls` that clears
+`attack` before the original runs is the only point where the press still exists
+and the seat is still occupied. That is also why the design says sound-only while
+seated, swimming or riding: it is not a simplification, it is the only behaviour
+the game leaves available.
+
+### Consequences that follow from the choice
+
+**Only `attack`, never `attackHold`.** `PlayerController.FixedUpdate` computes
+them from the same `ZInput.GetButton("Attack") || GetButton("JoyAttack")` state,
+then derives `attack` as `held && !m_attackWasPressed` against its own
+per-tick memory. So `attack` is true for exactly one physics tick per press and
+`attackHold` for every tick the button is down. Acting on the latter would sound
+the horn at the physics rate. Nothing extra is needed to debounce a single press,
+and nothing extra is needed for the radial menu either: the same expression
+already includes `!Hud.InRadial()`.
+
+**The local-player guard is not defensive coding.** Remote players run
+`SetControls` too, driven by input replicated from the machine that owns them.
+Without `__instance != Player.m_localPlayer` an observer would sound a second
+Horn Call for someone else's press and charge their own Horn Cooldown for it.
+
+**`attack` is cleared only when the body is not free.** With a free body the flag
+is left alone so vanilla raises the horn and plays the tankard's drink animation
+— including during a cooldown, where the animation plus the centre-screen message
+is the honest feedback that the press registered and the sound did not.
+
+**A throw here is the worst thing this mod could do.** A prefix that throws
+aborts the patch chain *and* skips the original, and on this method that means
+the player stops responding to input entirely. Hence the try/catch, on a hook the
+tickets' convention would not otherwise have listed.
+
+### "Horn equipped" means two fields, and neither is public
+
+A Signal Horn is an `ItemType.Tool`, and `Humanoid.EquipItem` puts a Tool in
+`m_rightItem`. But `Player.AttachStart` calls `HideHandItems()` whenever the seat
+asks for `hideWeapons` — rudders and benches do — and `HideHandItems` unequips
+`m_rightItem` and parks it in `m_hiddenRightItem`. `Player.Update` does the same
+while swimming: it only calls `ShowHandItems` when `!IsSwimming() || IsOnGround()`.
+Exactly the cases this ticket exists to support are the cases where the visible
+slot is empty, so `HasHornEquipped` has to consult both.
+
+Neither field is reachable normally. `m_hiddenRightItem` is `private`, which the
+ticket says; `m_rightItem` is `protected`, which it does not, and so is
+`GetRightItem()`. Protected members are no more accessible from another assembly
+than private ones, so **both** go through
+`AccessTools.FieldRefAccess<Humanoid, ItemDrop.ItemData>`. `GetCurrentWeapon()`
+is the one public route to the right hand and it is not a substitute: it filters
+on `IsWeapon()` and returns the unarmed fallback otherwise, so it answers a
+different question.
+
+There is never a horn in both slots at once — a Tool takes the right hand alone,
+and `EquipItem` nulls `m_hiddenRightItem`/`m_hiddenLeftItem` when it equips one —
+but the check costs nothing and the log line reports which slot answered, which
+is how the seated and swimming cases are told apart in the log.
+
+### Time.time, and why the first call is special-cased
+
+The Horn Cooldown is one player's own rate limit, compared only against itself,
+so it uses `Time.time` rather than any network clock: monotonic, per client, and
+readable without a session. The comparison is strictly `<` so that a Cooldown of
+`0` never blocks — `Time.time - _lastCall` is `0` at its smallest and `0 < 0` is
+false, whereas `<=` would turn "no cooldown" into "one call per tick, forever".
+
+A separate `_hasCalled` flag carries the first call rather than leaning on
+`_lastCall == 0`, because zero is a real instant — the moment the process started
+— and a horn sounded in the first seconds of a run would otherwise be refused by
+a call that never happened. `HornBlower.Reset()` on `ZNet.Shutdown` clears both,
+for the matching reason: `Time.time` does not restart with the world, so without
+it a horn sounded just before logging out would still be ringing on the other
+side of the loading screen.
