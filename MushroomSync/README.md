@@ -4,12 +4,14 @@ Shared server-authoritative sync for the Mushroom mods. The host decides, client
 follow, and nobody's local `.cfg` gets rewritten.
 
 It has no gameplay of its own. It exists so the mods that need server-authoritative
-settings share one implementation instead of four copies of the same 300 lines.
+settings share one implementation instead of a copy of the same 300 lines each. It
+started life as four copies that had already drifted apart.
 
 ## Required by
 
 | Mod | Uses |
 |---|---|
+| Audible Horn | Config sync |
 | Combat Adjustments | Config sync |
 | Craftable Spawners | Config sync |
 | Haldor Expansion | Config sync |

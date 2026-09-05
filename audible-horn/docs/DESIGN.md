@@ -1,43 +1,12 @@
 # Audible Horn — design notes
 
-Things learned while building this mod that the code alone does not explain. The
-vocabulary is in [CONTEXT.md](CONTEXT.md); the build plan is in
-[tickets/](tickets/).
+Game APIs that behave unlike their names, approaches that were tried and
+rejected, and traps worth not walking into twice — the vocabulary is in
+[CONTEXT.md](CONTEXT.md), the build plan in [tickets/](tickets/).
 
-## Which reference-root property the csproj uses
-
-Ticket 01 says to copy `haldor-expansion/HaldorExpansion.csproj`, but haldor
-resolves the game through a `Local.props` import and errors out if `ValheimDir`
-is unset. That fails the ticket's own acceptance criterion — a bare
-`dotnet build` with no arguments — because `Local.props` is gitignored and does
-not exist in a fresh checkout.
-
-So the reference block here is MushroomSync's instead: `ValheimDir` defaults from
-the Steam registry (app 892970), then `ValheimManaged` and `BepInExCore` default
-from it, each guarded by `Condition="'$(X)' == ''"`. CI is unaffected either way
-— `docs/devops.md` says the composite action passes *every* spelling of the
-reference root as an MSBuild global property, and global properties beat anything
-a project sets, so the `Condition` blocks simply never fire on a runner.
-
-The practical rule: a new mod here should take its reference block from
-MushroomSync, not from haldor.
-
-## Why sync has no opt-out gate
-
-`Plugin.Awake` calls neither `ConfigSync.GatedBy` nor `AcceptedWhen`, unlike
-Combat Adjustments and Haldor Expansion. That is deliberate, not an oversight.
-
-Hearing Range and Horn Cooldown are not preferences — they are a shared fiction
-between two machines. If a Listener's Hearing Range is larger than the Blower's,
-they hear a Horn Call the Blower's client believes was out of earshot; if a
-client keeps a shorter Cooldown than the server, it sounds the horn more often
-than the server allows. Either way the two players disagree about what happened,
-which is the one failure this mod cannot tolerate, because hearing the call *is*
-the whole feature.
-
-Horn Volume is the opposite case and is `Exclude`d: it is a personal loudness
-multiplier, it changes nothing another player observes, and a host overwriting it
-would be an intrusion.
+Sections run in the order a new reader needs them: the item, the input that
+sounds it, the message that carries it, the sound itself, the settings screen,
+and last the project's own build.
 
 ## TankardOdin as cloned
 
@@ -110,213 +79,102 @@ conventions), so both go through `HarmonyLib.AccessTools`: a cached `MethodInfo`
 the crafting UI and `Inventory.AddItem` all resolve through. The item would appear
 to register successfully and then not exist.
 
-## Audio settings row hierarchy
+## Why the attack is intercepted in SetControls
 
-The Horn Volume slider is a **clone of the vanilla music row**, not a hand-built
-widget: cloning inherits the panel's fonts, colours, slider art and row width for
-free, and keeps inheriting them when the game restyles the panel.
+The obvious place to catch "the player pressed attack while holding the horn" is
+the attack itself — `Humanoid.StartAttack`, or `Attack.Start`. Both are wrong,
+and the reason is a single block at the very top of `Player.SetControls`:
 
-### The type is namespaced, and the bare name is a trap
+```csharp
+if ((IsAttached() || InEmote()) && (movedir != Vector3.zero || attack || ...) && GetDoodadController() == null)
+{
+    attack = false; attackHold = false; secondaryAttack = false; secondaryAttackHold = false;
+    StopEmote();
+    AttachStop();
+}
+```
 
-The Audio tab is `Valheim.SettingsGui.AudioSettings`, not the global
-`AudioSettings` the ticket names. `UnityEngine.AudioSettings` is a real,
-unrelated type, so an unqualified `AudioSettings` compiles cleanly and binds to
-Unity's — the patch class would attach to the wrong type and simply never fire,
-with no error anywhere. `AudioSettingsPatch.cs` aliases it once as
-`VanillaAudioSettings` and never writes the bare name.
+That is what stands a seated player up when they press attack, and it runs
+*before* anything the attack methods would see. The `m_doodadController` block
+immediately after it does the same for a rider, calling `StopDoodadControl()`
+and dismounting the lox. By the time `StartAttack` is reached the input has
+already been spent on leaving the seat, and the attack itself never happens:
+`StartAttack` refuses on `!CanMove()` / `InAttack()` / `InMinorAction()`, and
+`Player.StartEmote` refuses outright on `IsAttached() || IsAttachedToShip()`.
 
-### What the four lifecycle methods actually do
+So the vanilla animation path is *unreachable* while attached, and a patch on it
+could never be told that a seated player wanted to sound the horn — it would only
+ever see a player who had just stood up. A prefix on `SetControls` that clears
+`attack` before the original runs is the only point where the press still exists
+and the seat is still occupied. That is also why the design says sound-only while
+seated, swimming or riding: it is not a simplification, it is the only behaviour
+the game leaves available.
 
-Read off the IL, because the names mislead:
+### Consequences that follow from the choice
 
-| Method | Signature | Actually does |
-|---|---|---|
-| `Initialize()` | — | Loads the three sliders from `PlatformPrefs` and stores `m_old*`. Does **not** call `OnAudioChanged`, so the value texts are updated by the prefab's persistent slider listener, not here. |
-| `OnTabOpen(Button back, Button ok)` | 2 params | Only wires gamepad navigation: `GuiUtils.SetNavigationDown/Up` between `m_continousMusic` and the Back/OK buttons. Nothing about values. |
-| `OnOkAsync(OkActionCompletedHandler cb)` | 1 param | Writes `PlatformPrefs`, then invokes the callback if non-null. |
-| `OnBack()` | — | Restores `m_old*` straight into `AudioListener.volume`, `MusicMan.m_masterMusicVolume` and `AudioMan.SetSFXVolume`. |
-| `OnAudioChanged()` | — | The sliders' persistent change listener. Formats every value text as `Mathf.Round(v * 100f).ToString() + "%"` — matched exactly by our row. |
+**Only `attack`, never `attackHold`.** `PlayerController.FixedUpdate` computes
+them from the same `ZInput.GetButton("Attack") || GetButton("JoyAttack")` state,
+then derives `attack` as `held && !m_attackWasPressed` against its own
+per-tick memory. So `attack` is true for exactly one physics tick per press and
+`attackHold` for every tick the button is down. Acting on the latter would sound
+the horn at the physics rate. Nothing extra is needed to debounce a single press,
+and nothing extra is needed for the radial menu either: the same expression
+already includes `!Hud.InRadial()`.
 
-Two consequences. First, gamepad navigation has to be spliced in from an
-`OnTabOpen` postfix, not `Initialize`: the buttons that terminate the chain are
-not known any earlier. Second, the vanilla chain is set **explicitly**, so
-`Navigation.mode` is presumably `Explicit`; our patch reads the mode and only
-rewrites links when it is, otherwise it copies Music's navigation and lets
-Unity's automatic mode find the clone geometrically.
+**The local-player guard is not defensive coding.** Remote players run
+`SetControls` too, driven by input replicated from the machine that owns them.
+Without `__instance != Player.m_localPlayer` an observer would sound a second
+Horn Call for someone else's press and charge their own Horn Cooldown for it.
 
-### Why the row is discovered, not addressed by path
+**`attack` is cleared only when the body is not free.** With a free body the flag
+is left alone so vanilla raises the horn and plays the tankard's drink animation
+— including during a cooldown, where the animation plus the centre-screen message
+is the honest feedback that the press registered and the sound did not.
 
-The row layout is only knowable at runtime and this was written without the
-ability to launch the game, so nothing is hard-coded to a transform path. The
-only two anchors the game exposes are the private fields `m_musicVolumeSlider`
-and `m_musicVolumeText` (`AccessTools.FieldRefAccess`, no publicizer). From
-those:
+**A throw here is the worst thing this mod could do.** A prefix that throws
+aborts the patch chain *and* skips the original, and on this method that means
+the player stops responding to input entirely. Hence the try/catch, on a hook the
+tickets' convention would not otherwise have listed.
 
-1. **The row** is the nearest ancestor-or-self of the slider that also contains
-   the value text (`Transform.IsChildOf` is true for the transform itself, so a
-   label parented *under* the slider falls out of the same test).
-2. **Sanity gate.** If that ancestor also contains the SFX slider, the master
-   slider or the Continuous Music toggle, the walk over-reached and the "row" is
-   really the whole list — cloning it would duplicate every audio control. The
-   patch logs an error and adds no slider rather than wrecking the panel.
-3. **Parts inside the clone** are resolved by the *child-index path* the
-   original occupies in the source row, not by name. `Instantiate` preserves
-   child order exactly, and index paths stay unambiguous where names do not: two
-   rows can both contain a `Text (TMP)`. The resolved object's name is compared
-   to the original's and a mismatch is logged, so a surprising hierarchy shows up
-   in the log instead of silently relabelling the wrong object. Name matching is
-   the fallback if the index walk fails.
-4. **The label** is whichever `TMP_Text` in the row is not the value text.
-5. **Placement.** If the row's parent has a `LayoutGroup`, `SetSiblingIndex` is
-   the whole story. If not, the rows are absolutely positioned and the clone is
-   offset by `musicRow.anchoredPosition - sfxRow.anchoredPosition` — the gap the
-   panel already uses between two rows. Controls *below* Music are deliberately
-   not moved; if that turns out to be needed the log says so loudly.
+### "Horn equipped" means two fields, and neither is public
 
-`Localize` components are destroyed throughout the clone. `Localize.Start` runs
-`Localization.Localize` over its subtree and repeats it on every language change;
-our label is a literal with no `$token` so it would survive, but removing the
-component makes that a fact rather than a bet.
+A Signal Horn is an `ItemType.Tool`, and `Humanoid.EquipItem` puts a Tool in
+`m_rightItem`. But `Player.AttachStart` calls `HideHandItems()` whenever the seat
+asks for `hideWeapons` — rudders and benches do — and `HideHandItems` unequips
+`m_rightItem` and parks it in `m_hiddenRightItem`. `Player.Update` does the same
+while swimming: it only calls `ShowHandItems` when `!IsSwimming() || IsOnGround()`.
+Exactly the cases this ticket exists to support are the cases where the visible
+slot is empty, so `HasHornEquipped` has to consult both.
 
-### Observed structure
+Neither field is reachable normally. `m_hiddenRightItem` is `private`, which the
+ticket says; `m_rightItem` is `protected`, which it does not, and so is
+`GetRightItem()`. Protected members are no more accessible from another assembly
+than private ones, so **both** go through
+`AccessTools.FieldRefAccess<Humanoid, ItemDrop.ItemData>`. `GetCurrentWeapon()`
+is the one public route to the right hand and it is not a substitute: it filters
+on `IsWeapon()` and returns the unarmed fallback otherwise, so it answers a
+different question.
 
-**To be filled in from the first in-game run.** The patch logs one Info block,
-once per session, from the first `Initialize` — the slider and value-text paths,
-the chosen row, the row's parent and its components, the parent's children in
-order, the full row subtree with each object's components and text, the slider's
-`Navigation.mode` and current up/down links, and the SFX/music anchored positions
-with the derived step. Open Settings → Audio once, then paste that block here and
-replace this paragraph. Until then, treat everything above as the *strategy*, not
-a description of what is there.
+There is never a horn in both slots at once — a Tool takes the right hand alone,
+and `EquipItem` nulls `m_hiddenRightItem`/`m_hiddenLeftItem` when it equips one —
+but the check costs nothing and the log line reports which slot answered, which
+is how the seated and swimming cases are told apart in the log.
 
-What to check in that block:
+### Time.time, and why the first call is special-cased
 
-- Is the chosen row one row, or did the walk over-reach? (An error line right
-  after it says so.)
-- Does the row's parent carry a `LayoutGroup`? The next Info line names it, or
-  reports the absolute-position offset it computed instead.
-- Is `Navigation.mode` `Explicit`? If it is `Automatic`, the navigation splice is
-  skipped by design and the Info line says so.
+The Horn Cooldown is one player's own rate limit, compared only against itself,
+so it uses `Time.time` rather than any network clock: monotonic, per client, and
+readable without a session. The comparison is strictly `<` so that a Cooldown of
+`0` never blocks — `Time.time - _lastCall` is `0` at its smallest and `0 < 0` is
+false, whereas `<=` would turn "no cooldown" into "one call per tick, forever".
 
-### The ticket's note about `WatchForChanges` is wrong
-
-Ticket 06 justifies the `OnTabOpen` refresh with "MushroomSync's
-`WatchForChanges` reloads it". It does not: `ConfigSync.WatchForChanges`
-subscribes to `ConfigFile.SettingChanged` and *rebroadcasts* registered settings
-from the server. It never re-reads the file, and Horn Volume is `Exclude`d so it
-is never broadcast either. Usefully, that also means our slider cannot start a
-write/reload feedback loop. The refresh is kept anyway — it is cheap, and it
-covers a `.cfg` reloaded by any other means.
-
-Writing `ConfigEntry.Value` both applies live and persists (BepInEx saves on set
-by default), which is what makes the change listener one line. It does mean a
-slider drag rewrites the `.cfg` per changed frame; the listener skips writes when
-the value did not actually move, and the file is small.
-## Why not ZSFX
-
-`ZSFX` is the game's own sound component, and reaching for it is the obvious move:
-it already handles concurrency limits, reverb by distance, randomised pitch and
-volume, and fade-out. It was rejected, and it should not be retried.
-
-ZSFX is built around *prefabs*, not around runtime clips. Its clips come from a
-`m_audioClips` array populated in the editor, and its instances are expected to be
-spawned from a prefab that `ZNetScene` knows about — the component's whole
-lifecycle assumes a registered prefab and the hash registry that goes with it. A
-Horn Call has neither: the clip is decoded out of this DLL's own resources at
-runtime, and the sound is a transient one-shot with no networked object behind it.
-Using ZSFX would mean fabricating a prefab at load, registering it, and then
-overwriting `m_audioClips` on each instance — a lot of machinery to end up with
-the same `AudioSource` that `HornAudio.Play` creates in nine lines.
-
-What ZSFX offers over a plain `AudioSource` is also mostly not wanted here. Its
-concurrency cap and randomised pitch are right for a hundred overlapping combat
-sounds and wrong for a signal: a Horn Call is rare (there is a Horn Cooldown), and
-it must sound the same every time, because a Listener judges distance from its
-loudness. Randomising that would defeat the feature.
-
-The one thing ZSFX is still needed for is finding the mixer group — see below.
-
-## Finding the SFX mixer group
-
-Horn Calls must follow the game's own Effects slider, which means routing the
-`AudioSource` through the mixer group vanilla sound effects use. There is no
-public handle on it. `AudioMan` exposes `m_masterMixer` (the `AudioMixer` itself),
-`m_ambientMixer` and `m_guiMixer` (both `AudioMixerGroup`) — everything except the
-one that is wanted. `AudioMan.GetSFXVolume()` / `SetSFXVolume(float)` are public
-and static, and the mixer's exposed parameter is named `SfxVol`, but a parameter
-value is not a group and cannot be assigned to `outputAudioMixerGroup`.
-
-Two approaches were considered:
-
-- **Read `SfxVol` and fold it into the source's `volume`.** Rejected: it
-  duplicates the mixer's own maths, it needs re-reading whenever the player moves
-  the slider mid-call, and it silently diverges the moment the game changes how
-  that parameter maps to gain.
-- **Borrow the group from something already routed to it.** Taken. Every vanilla
-  `ZSFX` prefab carries an `AudioSource` whose `outputAudioMixerGroup` *is* the SFX
-  group, so `HornAudio` walks `ZNetScene.instance.m_prefabs` on the first Horn
-  Call, takes the first prefab with a `ZSFX` whose `AudioSource` has a non-null
-  group, and caches it.
-
-The scan is lazy because `ZNetScene.instance` does not exist at plugin load, and
-it settles permanently once `ZNetScene` is up: the prefab list does not change
-after `Awake`, so a full scan that found nothing will not find anything later
-either, and re-walking a few thousand prefabs per Horn Call would be a waste.
-Before `ZNetScene` exists the scan stays unsettled and is retried on the next
-call.
-
-**Group name observed: to be filled in from the first in-game run.** The mod logs
-it once, at Info, as `SFX mixer group '<name>' taken from prefab '<prefab>'`.
-
-A missing group is a degradation, not a failure. The call still plays; it just
-sits outside the Effects slider, and a Warning says so once. This is why
-`HornAudio.IsReady` deliberately does **not** include the group in its answer,
-despite ticket 03's inline comment saying "clip loaded and mixer group found":
-ticket 04 gates playback on `IsReady`, so folding the group into it would turn a
-cosmetic fallback into total silence — the opposite of what the same ticket
-specifies two paragraphs earlier. `IsReady` means "this process has an
-`AudioListener` and the clip decoded", which is the question ticket 04 is actually
-asking.
-
-## Referencing UnityEngine.AudioModule from net472 costs two workarounds
-
-Audible Horn is the first net472 project in this repo to use types out of
-`UnityEngine.AudioModule`. Merely referencing the assembly is fine — the scaffold
-did that from ticket 01 and nothing complained. Touching a type inside it is not,
-and the two failures that follow look unrelated but are the same root cause.
-
-1. **CS1705.** `UnityEngine.AudioModule` is built against netstandard **2.1**;
-   a net472 target supplies the 2.0 facade, and the compiler refuses the moment it
-   has to load a type from the assembly. The fix is a `<Reference
-   Include="netstandard">` pointing at the game's own
-   `valheim_Data/Managed/netstandard.dll`. Retargeting is not an option in either
-   direction: netstandard2.1 cannot reference MushroomSync's net472, and net48 is
-   still capped at netstandard 2.0.
-
-2. **CS0518 on `AudioClip.SetData`**, caused by the fix for the first. With
-   netstandard 2.1 in the compilation the compiler now sees Unity's
-   `SetData(ReadOnlySpan<float>, int)` overload, and binding the call requires
-   resolving `ReadOnlySpan<T>` — which net472 does not define and Unity's
-   netstandard 2.1 only *forwards* to a Mono `mscorlib` this project does not
-   reference. The array overload is an exact match and is still unreachable,
-   because overload resolution has to type every candidate first. `WavLoader`
-   therefore picks `SetData(float[], int)` by signature through reflection, once
-   per process.
-
-The general shape to expect: any Unity API with both an array and a
-`Span`/`ReadOnlySpan` overload is unbindable from this project. Reach for
-reflection at that one call site rather than restructuring the reference set —
-pulling in the game's whole Mono BCL with `NoStdLib` was the alternative, and it
-would make this mod the only one here that does not build like the others.
-
-## net472 is forced, not chosen
-
-`MushroomSync` targets `net472` and cannot be netstandard (its csproj carries the
-reasoning: the game's UnityEngine assemblies are built against netstandard 2.1,
-so a 2.0 target fails with CS1705, and a 2.1 target could not be referenced by the
-net47x mods). Anything that references MushroomSync inherits that constraint.
-vegvisir-compass is the mod that does not, and it is the mod that cannot use
-sync.
+A separate `_hasCalled` flag carries the first call rather than leaning on
+`_lastCall == 0`, because zero is a real instant — the moment the process started
+— and a horn sounded in the first seconds of a run would otherwise be refused by
+a call that never happened. `HornBlower.Reset()` on `ZNet.Shutdown` clears both,
+for the matching reason: `Time.time` does not restart with the world, so without
+it a horn sounded just before logging out would still be ringing on the other
+side of the loading screen.
 
 ## Does Everybody include the sender?
 
@@ -425,99 +283,246 @@ and the `ZNet.Shutdown` postfix clears both — belt and braces, since either on
 alone would do. `Separate Spawns`' `LayoutSync` has the same shape and is where
 it was copied from.
 
-## Why the attack is intercepted in SetControls
+## Why sync has no opt-out gate
 
-The obvious place to catch "the player pressed attack while holding the horn" is
-the attack itself — `Humanoid.StartAttack`, or `Attack.Start`. Both are wrong,
-and the reason is a single block at the very top of `Player.SetControls`:
+`Plugin.Awake` calls neither `ConfigSync.GatedBy` nor `AcceptedWhen`, unlike
+Combat Adjustments and Haldor Expansion. That is deliberate, not an oversight.
 
-```csharp
-if ((IsAttached() || InEmote()) && (movedir != Vector3.zero || attack || ...) && GetDoodadController() == null)
-{
-    attack = false; attackHold = false; secondaryAttack = false; secondaryAttackHold = false;
-    StopEmote();
-    AttachStop();
-}
-```
+Hearing Range and Horn Cooldown are not preferences — they are a shared fiction
+between two machines. If a Listener's Hearing Range is larger than the Blower's,
+they hear a Horn Call the Blower's client believes was out of earshot; if a
+client keeps a shorter Cooldown than the server, it sounds the horn more often
+than the server allows. Either way the two players disagree about what happened,
+which is the one failure this mod cannot tolerate, because hearing the call *is*
+the whole feature.
 
-That is what stands a seated player up when they press attack, and it runs
-*before* anything the attack methods would see. The `m_doodadController` block
-immediately after it does the same for a rider, calling `StopDoodadControl()`
-and dismounting the lox. By the time `StartAttack` is reached the input has
-already been spent on leaving the seat, and the attack itself never happens:
-`StartAttack` refuses on `!CanMove()` / `InAttack()` / `InMinorAction()`, and
-`Player.StartEmote` refuses outright on `IsAttached() || IsAttachedToShip()`.
+Horn Volume is the opposite case and is `Exclude`d: it is a personal loudness
+multiplier, it changes nothing another player observes, and a host overwriting it
+would be an intrusion.
 
-So the vanilla animation path is *unreachable* while attached, and a patch on it
-could never be told that a seated player wanted to sound the horn — it would only
-ever see a player who had just stood up. A prefix on `SetControls` that clears
-`attack` before the original runs is the only point where the press still exists
-and the seat is still occupied. That is also why the design says sound-only while
-seated, swimming or riding: it is not a simplification, it is the only behaviour
-the game leaves available.
+## Why not ZSFX
 
-### Consequences that follow from the choice
+`ZSFX` is the game's own sound component, and reaching for it is the obvious move:
+it already handles concurrency limits, reverb by distance, randomised pitch and
+volume, and fade-out. It was rejected, and it should not be retried.
 
-**Only `attack`, never `attackHold`.** `PlayerController.FixedUpdate` computes
-them from the same `ZInput.GetButton("Attack") || GetButton("JoyAttack")` state,
-then derives `attack` as `held && !m_attackWasPressed` against its own
-per-tick memory. So `attack` is true for exactly one physics tick per press and
-`attackHold` for every tick the button is down. Acting on the latter would sound
-the horn at the physics rate. Nothing extra is needed to debounce a single press,
-and nothing extra is needed for the radial menu either: the same expression
-already includes `!Hud.InRadial()`.
+ZSFX is built around *prefabs*, not around runtime clips. Its clips come from a
+`m_audioClips` array populated in the editor, and its instances are expected to be
+spawned from a prefab that `ZNetScene` knows about — the component's whole
+lifecycle assumes a registered prefab and the hash registry that goes with it. A
+Horn Call has neither: the clip is decoded out of this DLL's own resources at
+runtime, and the sound is a transient one-shot with no networked object behind it.
+Using ZSFX would mean fabricating a prefab at load, registering it, and then
+overwriting `m_audioClips` on each instance — a lot of machinery to end up with
+the same `AudioSource` that `HornAudio.Play` creates in nine lines.
 
-**The local-player guard is not defensive coding.** Remote players run
-`SetControls` too, driven by input replicated from the machine that owns them.
-Without `__instance != Player.m_localPlayer` an observer would sound a second
-Horn Call for someone else's press and charge their own Horn Cooldown for it.
+What ZSFX offers over a plain `AudioSource` is also mostly not wanted here. Its
+concurrency cap and randomised pitch are right for a hundred overlapping combat
+sounds and wrong for a signal: a Horn Call is rare (there is a Horn Cooldown), and
+it must sound the same every time, because a Listener judges distance from its
+loudness. Randomising that would defeat the feature.
 
-**`attack` is cleared only when the body is not free.** With a free body the flag
-is left alone so vanilla raises the horn and plays the tankard's drink animation
-— including during a cooldown, where the animation plus the centre-screen message
-is the honest feedback that the press registered and the sound did not.
+The one thing ZSFX is still needed for is finding the mixer group — see below.
 
-**A throw here is the worst thing this mod could do.** A prefix that throws
-aborts the patch chain *and* skips the original, and on this method that means
-the player stops responding to input entirely. Hence the try/catch, on a hook the
-tickets' convention would not otherwise have listed.
+## Finding the SFX mixer group
 
-### "Horn equipped" means two fields, and neither is public
+Horn Calls must follow the game's own Effects slider, which means routing the
+`AudioSource` through the mixer group vanilla sound effects use. There is no
+public handle on it. `AudioMan` exposes `m_masterMixer` (the `AudioMixer` itself),
+`m_ambientMixer` and `m_guiMixer` (both `AudioMixerGroup`) — everything except the
+one that is wanted. `AudioMan.GetSFXVolume()` / `SetSFXVolume(float)` are public
+and static, and the mixer's exposed parameter is named `SfxVol`, but a parameter
+value is not a group and cannot be assigned to `outputAudioMixerGroup`.
 
-A Signal Horn is an `ItemType.Tool`, and `Humanoid.EquipItem` puts a Tool in
-`m_rightItem`. But `Player.AttachStart` calls `HideHandItems()` whenever the seat
-asks for `hideWeapons` — rudders and benches do — and `HideHandItems` unequips
-`m_rightItem` and parks it in `m_hiddenRightItem`. `Player.Update` does the same
-while swimming: it only calls `ShowHandItems` when `!IsSwimming() || IsOnGround()`.
-Exactly the cases this ticket exists to support are the cases where the visible
-slot is empty, so `HasHornEquipped` has to consult both.
+Two approaches were considered:
 
-Neither field is reachable normally. `m_hiddenRightItem` is `private`, which the
-ticket says; `m_rightItem` is `protected`, which it does not, and so is
-`GetRightItem()`. Protected members are no more accessible from another assembly
-than private ones, so **both** go through
-`AccessTools.FieldRefAccess<Humanoid, ItemDrop.ItemData>`. `GetCurrentWeapon()`
-is the one public route to the right hand and it is not a substitute: it filters
-on `IsWeapon()` and returns the unarmed fallback otherwise, so it answers a
-different question.
+- **Read `SfxVol` and fold it into the source's `volume`.** Rejected: it
+  duplicates the mixer's own maths, it needs re-reading whenever the player moves
+  the slider mid-call, and it silently diverges the moment the game changes how
+  that parameter maps to gain.
+- **Borrow the group from something already routed to it.** Taken. Every vanilla
+  `ZSFX` prefab carries an `AudioSource` whose `outputAudioMixerGroup` *is* the SFX
+  group, so `HornAudio` walks `ZNetScene.instance.m_prefabs` on the first Horn
+  Call, takes the first prefab with a `ZSFX` whose `AudioSource` has a non-null
+  group, and caches it.
 
-There is never a horn in both slots at once — a Tool takes the right hand alone,
-and `EquipItem` nulls `m_hiddenRightItem`/`m_hiddenLeftItem` when it equips one —
-but the check costs nothing and the log line reports which slot answered, which
-is how the seated and swimming cases are told apart in the log.
+The scan is lazy because `ZNetScene.instance` does not exist at plugin load, and
+it settles permanently once `ZNetScene` is up: the prefab list does not change
+after `Awake`, so a full scan that found nothing will not find anything later
+either, and re-walking a few thousand prefabs per Horn Call would be a waste.
+Before `ZNetScene` exists the scan stays unsettled and is retried on the next
+call.
 
-### Time.time, and why the first call is special-cased
+**Group name observed: to be filled in from the first in-game run.** The mod logs
+it once, at Info, as `SFX mixer group '<name>' taken from prefab '<prefab>'`.
 
-The Horn Cooldown is one player's own rate limit, compared only against itself,
-so it uses `Time.time` rather than any network clock: monotonic, per client, and
-readable without a session. The comparison is strictly `<` so that a Cooldown of
-`0` never blocks — `Time.time - _lastCall` is `0` at its smallest and `0 < 0` is
-false, whereas `<=` would turn "no cooldown" into "one call per tick, forever".
+A missing group is a degradation, not a failure. The call still plays; it just
+sits outside the Effects slider, and a Warning says so once. This is why
+`HornAudio.IsReady` deliberately does **not** include the group in its answer,
+despite ticket 03's inline comment saying "clip loaded and mixer group found":
+ticket 04 gates playback on `IsReady`, so folding the group into it would turn a
+cosmetic fallback into total silence — the opposite of what the same ticket
+specifies two paragraphs earlier. `IsReady` means "this process has an
+`AudioListener` and the clip decoded", which is the question ticket 04 is actually
+asking.
 
-A separate `_hasCalled` flag carries the first call rather than leaning on
-`_lastCall == 0`, because zero is a real instant — the moment the process started
-— and a horn sounded in the first seconds of a run would otherwise be refused by
-a call that never happened. `HornBlower.Reset()` on `ZNet.Shutdown` clears both,
-for the matching reason: `Time.time` does not restart with the world, so without
-it a horn sounded just before logging out would still be ringing on the other
-side of the loading screen.
+## Audio settings row hierarchy
+
+The Horn Volume slider is a **clone of the vanilla music row**, not a hand-built
+widget: cloning inherits the panel's fonts, colours, slider art and row width for
+free, and keeps inheriting them when the game restyles the panel.
+
+### The type is namespaced, and the bare name is a trap
+
+The Audio tab is `Valheim.SettingsGui.AudioSettings`, not the global
+`AudioSettings` the ticket names. `UnityEngine.AudioSettings` is a real,
+unrelated type, so an unqualified `AudioSettings` compiles cleanly and binds to
+Unity's — the patch class would attach to the wrong type and simply never fire,
+with no error anywhere. `AudioSettingsPatch.cs` aliases it once as
+`VanillaAudioSettings` and never writes the bare name.
+
+### What the four lifecycle methods actually do
+
+Read off the IL, because the names mislead:
+
+| Method | Signature | Actually does |
+|---|---|---|
+| `Initialize()` | — | Loads the three sliders from `PlatformPrefs` and stores `m_old*`. Does **not** call `OnAudioChanged`, so the value texts are updated by the prefab's persistent slider listener, not here. |
+| `OnTabOpen(Button back, Button ok)` | 2 params | Only wires gamepad navigation: `GuiUtils.SetNavigationDown/Up` between `m_continousMusic` and the Back/OK buttons. Nothing about values. |
+| `OnOkAsync(OkActionCompletedHandler cb)` | 1 param | Writes `PlatformPrefs`, then invokes the callback if non-null. |
+| `OnBack()` | — | Restores `m_old*` straight into `AudioListener.volume`, `MusicMan.m_masterMusicVolume` and `AudioMan.SetSFXVolume`. |
+| `OnAudioChanged()` | — | The sliders' persistent change listener. Formats every value text as `Mathf.Round(v * 100f).ToString() + "%"` — matched exactly by our row. |
+
+Two consequences. First, gamepad navigation has to be spliced in from an
+`OnTabOpen` postfix, not `Initialize`: the buttons that terminate the chain are
+not known any earlier. Second, the vanilla chain is set **explicitly**, so
+`Navigation.mode` is presumably `Explicit`; our patch reads the mode and only
+rewrites links when it is, otherwise it copies Music's navigation and lets
+Unity's automatic mode find the clone geometrically.
+
+### Why the row is discovered, not addressed by path
+
+The row layout is only knowable at runtime and this was written without the
+ability to launch the game, so nothing is hard-coded to a transform path. The
+only two anchors the game exposes are the private fields `m_musicVolumeSlider`
+and `m_musicVolumeText` (`AccessTools.FieldRefAccess`, no publicizer). From
+those:
+
+1. **The row** is the nearest ancestor-or-self of the slider that also contains
+   the value text (`Transform.IsChildOf` is true for the transform itself, so a
+   label parented *under* the slider falls out of the same test).
+2. **Sanity gate.** If that ancestor also contains the SFX slider, the master
+   slider or the Continuous Music toggle, the walk over-reached and the "row" is
+   really the whole list — cloning it would duplicate every audio control. The
+   patch logs an error and adds no slider rather than wrecking the panel.
+3. **Parts inside the clone** are resolved by the *child-index path* the
+   original occupies in the source row, not by name. `Instantiate` preserves
+   child order exactly, and index paths stay unambiguous where names do not: two
+   rows can both contain a `Text (TMP)`. The resolved object's name is compared
+   to the original's and a mismatch is logged, so a surprising hierarchy shows up
+   in the log instead of silently relabelling the wrong object. Name matching is
+   the fallback if the index walk fails.
+4. **The label** is whichever `TMP_Text` in the row is not the value text.
+5. **Placement.** If the row's parent has a `LayoutGroup`, `SetSiblingIndex` is
+   the whole story. If not, the rows are absolutely positioned and the clone is
+   offset by `musicRow.anchoredPosition - sfxRow.anchoredPosition` — the gap the
+   panel already uses between two rows. Controls *below* Music are deliberately
+   not moved; if that turns out to be needed the log says so loudly.
+
+`Localize` components are destroyed throughout the clone. `Localize.Start` runs
+`Localization.Localize` over its subtree and repeats it on every language change;
+our label is a literal with no `$token` so it would survive, but removing the
+component makes that a fact rather than a bet.
+
+### Observed structure
+
+**To be filled in from the first in-game run.** The patch logs one Info block,
+once per session, from the first `Initialize` — the slider and value-text paths,
+the chosen row, the row's parent and its components, the parent's children in
+order, the full row subtree with each object's components and text, the slider's
+`Navigation.mode` and current up/down links, and the SFX/music anchored positions
+with the derived step. Open Settings → Audio once, then paste that block here and
+replace this paragraph. Until then, treat everything above as the *strategy*, not
+a description of what is there.
+
+What to check in that block:
+
+- Is the chosen row one row, or did the walk over-reach? (An error line right
+  after it says so.)
+- Does the row's parent carry a `LayoutGroup`? The next Info line names it, or
+  reports the absolute-position offset it computed instead.
+- Is `Navigation.mode` `Explicit`? If it is `Automatic`, the navigation splice is
+  skipped by design and the Info line says so.
+
+### The ticket's note about `WatchForChanges` is wrong
+
+Ticket 06 justifies the `OnTabOpen` refresh with "MushroomSync's
+`WatchForChanges` reloads it". It does not: `ConfigSync.WatchForChanges`
+subscribes to `ConfigFile.SettingChanged` and *rebroadcasts* registered settings
+from the server. It never re-reads the file, and Horn Volume is `Exclude`d so it
+is never broadcast either. Usefully, that also means our slider cannot start a
+write/reload feedback loop. The refresh is kept anyway — it is cheap, and it
+covers a `.cfg` reloaded by any other means.
+
+Writing `ConfigEntry.Value` both applies live and persists (BepInEx saves on set
+by default), which is what makes the change listener one line. It does mean a
+slider drag rewrites the `.cfg` per changed frame; the listener skips writes when
+the value did not actually move, and the file is small.
+
+## Referencing UnityEngine.AudioModule from net472 costs two workarounds
+
+Audible Horn is the first net472 project in this repo to use types out of
+`UnityEngine.AudioModule`. Merely referencing the assembly is fine — the scaffold
+did that from ticket 01 and nothing complained. Touching a type inside it is not,
+and the two failures that follow look unrelated but are the same root cause.
+
+1. **CS1705.** `UnityEngine.AudioModule` is built against netstandard **2.1**;
+   a net472 target supplies the 2.0 facade, and the compiler refuses the moment it
+   has to load a type from the assembly. The fix is a `<Reference
+   Include="netstandard">` pointing at the game's own
+   `valheim_Data/Managed/netstandard.dll`. Retargeting is not an option in either
+   direction: netstandard2.1 cannot reference MushroomSync's net472, and net48 is
+   still capped at netstandard 2.0.
+
+2. **CS0518 on `AudioClip.SetData`**, caused by the fix for the first. With
+   netstandard 2.1 in the compilation the compiler now sees Unity's
+   `SetData(ReadOnlySpan<float>, int)` overload, and binding the call requires
+   resolving `ReadOnlySpan<T>` — which net472 does not define and Unity's
+   netstandard 2.1 only *forwards* to a Mono `mscorlib` this project does not
+   reference. The array overload is an exact match and is still unreachable,
+   because overload resolution has to type every candidate first. `WavLoader`
+   therefore picks `SetData(float[], int)` by signature through reflection, once
+   per process.
+
+The general shape to expect: any Unity API with both an array and a
+`Span`/`ReadOnlySpan` overload is unbindable from this project. Reach for
+reflection at that one call site rather than restructuring the reference set —
+pulling in the game's whole Mono BCL with `NoStdLib` was the alternative, and it
+would make this mod the only one here that does not build like the others.
+
+## net472 is forced, not chosen
+
+`MushroomSync` targets `net472` and cannot be netstandard (its csproj carries the
+reasoning: the game's UnityEngine assemblies are built against netstandard 2.1,
+so a 2.0 target fails with CS1705, and a 2.1 target could not be referenced by the
+net47x mods). Anything that references MushroomSync inherits that constraint.
+vegvisir-compass is the mod that does not, and it is the mod that cannot use
+sync.
+
+## Which reference-root property the csproj uses
+
+Ticket 01 says to copy `haldor-expansion/HaldorExpansion.csproj`, but haldor
+resolves the game through a `Local.props` import and errors out if `ValheimDir`
+is unset. That fails the ticket's own acceptance criterion — a bare
+`dotnet build` with no arguments — because `Local.props` is gitignored and does
+not exist in a fresh checkout.
+
+So the reference block here is MushroomSync's instead: `ValheimDir` defaults from
+the Steam registry (app 892970), then `ValheimManaged` and `BepInExCore` default
+from it, each guarded by `Condition="'$(X)' == ''"`. CI is unaffected either way
+— `docs/devops.md` says the composite action passes *every* spelling of the
+reference root as an MSBuild global property, and global properties beat anything
+a project sets, so the `Condition` blocks simply never fire on a runner.
+
+The practical rule: a new mod here should take its reference block from
+MushroomSync, not from haldor.

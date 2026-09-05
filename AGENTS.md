@@ -27,6 +27,7 @@ mod does not have it yet.
 
 | Mod | Docs |
 |---|---|
+| audible-horn | `docs/CONTEXT.md`, `docs/DESIGN.md` |
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md` |
 | CraftableSpawners | `docs/design_decisions.md` |
 | MushroomSync | `docs/DESIGN.md` |
@@ -37,8 +38,9 @@ mod does not have it yet.
 
 ## Server-authoritative sync
 
-Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil
-get their host-follows-client behaviour from **MushroomSync**, a shared plugin.
+Audible Horn, Combat Adjustments, Craftable Spawners, Haldor Expansion and
+Random Yggdrasil get their host-follows-client behaviour from **MushroomSync**,
+a shared plugin.
 Read [MushroomSync/README.md](MushroomSync/README.md) before adding a synced
 setting or a new push of server data, and
 [MushroomSync/docs/DESIGN.md](MushroomSync/docs/DESIGN.md) before changing how
