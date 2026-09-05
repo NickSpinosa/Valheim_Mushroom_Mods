@@ -24,6 +24,14 @@ namespace AudibleHorn
         internal static ModConfig Settings;
 
         /// <summary>
+        /// The plugin's own MonoBehaviour, which BepInEx keeps alive for the life of
+        /// the process. It is the only component this mod owns, so it is also the only
+        /// thing available to run a coroutine on - <see cref="HornCall"/> uses it to
+        /// time the self-echo detection window.
+        /// </summary>
+        internal static Plugin Instance;
+
+        /// <summary>
         /// Server-authoritative settings. Created before <see cref="ModConfig"/>
         /// because binding a setting registers it here.
         /// </summary>
@@ -33,6 +41,7 @@ namespace AudibleHorn
 
         private void Awake()
         {
+            Instance = this;
             Log = Logger;
 
             Sync = ConfigSync.Create(PluginGuid, PluginVersion, Logger)

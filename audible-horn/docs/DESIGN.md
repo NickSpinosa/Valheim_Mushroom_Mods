@@ -317,3 +317,110 @@ so a 2.0 target fails with CS1705, and a 2.1 target could not be referenced by t
 net47x mods). Anything that references MushroomSync inherits that constraint.
 vegvisir-compass is the mod that does not, and it is the mod that cannot use
 sync.
+
+## Does Everybody include the sender?
+
+**Status: to be filled in from the first in-game run.** The mod decides this at
+runtime, logs the answer once at Info, and behaves correctly either way in the
+meantime. Sound the horn once on a client, find the line beginning `Self-echo
+detection:` in `BepInEx/LogOutput.log`, and replace this paragraph with what it
+said. Then, and only then, delete the losing branch from `HornCall`.
+
+The question is whether `ZRoutedRpc.InvokeRoutedRPC(ZRoutedRpc.Everybody, ...)`
+also runs the sender's own handler, because the Blower must hear their own Horn
+Call exactly once — not twice, and not zero times. Nothing in this repo had
+established it, and it is not a thing to guess at: both wrong guesses are
+audible.
+
+### What the detection does
+
+`_selfEchoSettled` / `_selfEchoExists` are the answer; everything else is
+scaffolding to reach it safely.
+
+The probe flag is raised **before** the broadcast, not after. If the game
+dispatches locally it does so synchronously, inside `InvokeRoutedRPC`, so a flag
+set on the line after the send would be set too late to catch the very echo it
+exists to catch. `SendProbing` therefore arms, sends, and then asks whether the
+flag is still up.
+
+If it is, the echo may yet arrive over the network a frame or two later, so a
+coroutine waits one second before concluding there is none. That wait is a
+frame-by-frame loop on `Time.realtimeSinceStartup`, not `WaitForSeconds`: the
+game's time scale is zero while a menu is open and a scaled wait would never
+finish there.
+
+The coroutine runs on `Plugin.Instance` — the plugin's own `BaseUnityPlugin`
+is the only component this mod owns, and BepInEx keeps it alive for the life of
+the process.
+
+### Neither outcome can double-play or drop a call
+
+Three orderings exist and all three are handled:
+
+| Echo arrives | What happens |
+|---|---|
+| Synchronously, inside the send | `Receive` clears the probe, records "yes", plays the call. No local play path is ever taken. |
+| Within the one-second window | Same, one frame or two later. |
+| After the window expired, or never | The fallback plays the call locally and records "no". A late echo is then matched against `_pendingLocalPlays` and **dropped**, and the recorded answer is corrected to "yes" with a Warning so no later call is played twice. |
+
+`_pendingLocalPlays` is a counter rather than a flag because the settled "no"
+path arms it on every send, and a straggler could in principle arrive during the
+next one. It is matched against the Blower's ZDOID as well, so another player's
+call can never be mistaken for our own echo.
+
+Two ways to get this subtly wrong, both found by walking the orderings rather
+than by running anything, both worth not re-introducing:
+
+- **Re-reading `_selfEchoExists` after the send.** A late echo suppresses itself
+  *and* corrects the recorded answer to "yes", both inside `InvokeRoutedRPC`. A
+  send that decides whether to play locally by reading the field again
+  afterwards therefore suppresses the echo and then skips its own play — the
+  Blower hears nothing at all. `SendSettled` reads it once, into a local, before
+  the send.
+- **Routing the local play through the same suppression check that was just
+  armed.** The guard has to be armed before the send (the echo can be
+  synchronous), and the local play happens after it, so a local play going in by
+  the same door as a network delivery matches its own guard and is dropped.
+  Hence the `fromNetwork` flag on `Deliver`: the echo bookkeeping is for
+  messages that actually came off the wire, and a local play is the *result* of
+  that bookkeeping, never an input to it.
+
+The one hole, documented rather than closed: sounding the horn a second time
+inside that first second — which needs Horn Cooldown at `0` or the `horncall`
+console command — is broadcast normally but is not played locally if the answer
+turns out to be "no". A Warning names the count. It is unreachable in normal
+play and only ever applies to the first second of the first call of a process.
+
+### What the IL says to expect
+
+Read off `ZRoutedRpc::InvokeRoutedRPC(long, ZDOID, string, object[])` in
+`assembly_valheim.dll`, the tail is:
+
+- `if (targetPeerID == m_id || targetPeerID == 0) HandleRoutedRPC(data);`
+- `if (targetPeerID != m_id) RouteRPC(data);`
+
+`ZRoutedRpc.Everybody` is a static `long` with no static constructor
+initialising it, i.e. `0`. So the first branch is taken and the expected answer
+is **yes, synchronously, before `InvokeRoutedRPC` returns**. `RouteRPC` on the
+server then skips the peer whose `m_uid` equals `m_senderPeerID`, so the sender
+is not sent a second copy either — which is what makes "exactly once" work out.
+
+This is an expectation, not the observation. It is written down so that a
+surprising log line is recognisable as a surprise.
+
+## Two smaller traps in the Horn Call path
+
+**`FindInstance(id)?.transform` is wrong.** The null-conditional operator does a
+plain reference-null check and bypasses `UnityEngine.Object`'s overloaded `==`,
+so a destroyed `GameObject` — exactly what a ZDOID resolves to around a zone
+unload — reads as non-null and hands back a transform that throws on use.
+`ResolveBlowerTransform` uses an explicit `!= null` instead. The same applies
+anywhere else in this repo that a Unity object meets `?.`.
+
+**Re-registration is keyed on the `ZRoutedRpc` instance, not on a bool.**
+`ZRoutedRpc` is rebuilt with every `ZNet`, so a plain `_registered` flag would
+survive a logout and leave the mod believing a dead object was still listening.
+`HornCall.Register` compares `ReferenceEquals(_registeredInstance, ZRoutedRpc.instance)`
+and the `ZNet.Shutdown` postfix clears both — belt and braces, since either one
+alone would do. `Separate Spawns`' `LayoutSync` has the same shape and is where
+it was copied from.

@@ -35,10 +35,13 @@ namespace AudibleHorn
                 HornSoundFollow,
                 isCheat: true);
 
-            // Ticket 04 adds `horncall` here - the networked version, which sends the
-            // RPC instead of playing locally. Keep it cheat-only like these.
+            _ = new Terminal.ConsoleCommand(
+                "horncall",
+                "broadcast a real Horn Call from your position, as sounding the Signal Horn will",
+                HornCallCommand,
+                isCheat: true);
 
-            Plugin.Log.LogInfo("Console commands registered: hornsound, hornsoundfollow");
+            Plugin.Log.LogInfo("Console commands registered: hornsound, hornsoundfollow, horncall");
         }
 
         /// <summary>Local playback only. Nothing is sent to anyone else.</summary>
@@ -80,6 +83,27 @@ namespace AudibleHorn
                 Plugin.Settings.HearingRange.Value,
                 Plugin.Settings.HornVolume.Value);
             args.Context?.AddString("Horn Call following the local player. Walk while it sounds.");
+        }
+
+        /// <summary>
+        /// The networked path: sends the broadcast every Listener within Hearing Range
+        /// answers to, exactly as ticket 05's attack trigger will. No Horn Cooldown is
+        /// applied - that lands with the trigger, and being able to sound twice in a
+        /// row is useful for testing.
+        /// </summary>
+        private static void HornCallCommand(Terminal.ConsoleEventArgs args)
+        {
+            Player player = Player.m_localPlayer;
+            if (player == null)
+            {
+                args.Context?.AddString("No local player.");
+                return;
+            }
+
+            HornCall.Send(player);
+            args.Context?.AddString(
+                "Horn Call broadcast from " + player.transform.position + " (hearing range " +
+                Plugin.Settings.HearingRange.Value.ToString("0.#") + " m). See the log for what each client did with it.");
         }
     }
 

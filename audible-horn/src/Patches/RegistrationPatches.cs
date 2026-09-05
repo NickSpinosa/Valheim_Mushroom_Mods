@@ -70,6 +70,9 @@ namespace AudibleHorn
     /// the ground would fail. This is a separate patch chain, so it still gets a
     /// chance to put things right - on the dedicated server as well, which runs
     /// Game.Start with no local player.
+    ///
+    /// It is also where the Horn Call broadcast is hooked up, because Game.Start is
+    /// the first point at which ZRoutedRpc exists.
     /// </summary>
     [HarmonyPatch(typeof(Game), "Start")]
     internal static class SignalHornGameStartPatch
@@ -86,6 +89,18 @@ namespace AudibleHorn
             catch (System.Exception e)
             {
                 Plugin.Log.LogError("Failed to initialise the " + SignalHornItem.DisplayName + " on game start: " + e);
+            }
+
+            // Its own try/catch, not the one above: a prefab that failed to register
+            // is no reason for the mod to also go deaf, and a horn that cannot be
+            // heard is no reason for it to stop being craftable.
+            try
+            {
+                HornCall.Register();
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogError("Failed to register the Horn Call RPC on game start: " + e);
             }
         }
     }
