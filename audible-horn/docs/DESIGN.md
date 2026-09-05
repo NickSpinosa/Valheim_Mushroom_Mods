@@ -212,6 +212,102 @@ Writing `ConfigEntry.Value` both applies live and persists (BepInEx saves on set
 by default), which is what makes the change listener one line. It does mean a
 slider drag rewrites the `.cfg` per changed frame; the listener skips writes when
 the value did not actually move, and the file is small.
+## Why not ZSFX
+
+`ZSFX` is the game's own sound component, and reaching for it is the obvious move:
+it already handles concurrency limits, reverb by distance, randomised pitch and
+volume, and fade-out. It was rejected, and it should not be retried.
+
+ZSFX is built around *prefabs*, not around runtime clips. Its clips come from a
+`m_audioClips` array populated in the editor, and its instances are expected to be
+spawned from a prefab that `ZNetScene` knows about — the component's whole
+lifecycle assumes a registered prefab and the hash registry that goes with it. A
+Horn Call has neither: the clip is decoded out of this DLL's own resources at
+runtime, and the sound is a transient one-shot with no networked object behind it.
+Using ZSFX would mean fabricating a prefab at load, registering it, and then
+overwriting `m_audioClips` on each instance — a lot of machinery to end up with
+the same `AudioSource` that `HornAudio.Play` creates in nine lines.
+
+What ZSFX offers over a plain `AudioSource` is also mostly not wanted here. Its
+concurrency cap and randomised pitch are right for a hundred overlapping combat
+sounds and wrong for a signal: a Horn Call is rare (there is a Horn Cooldown), and
+it must sound the same every time, because a Listener judges distance from its
+loudness. Randomising that would defeat the feature.
+
+The one thing ZSFX is still needed for is finding the mixer group — see below.
+
+## Finding the SFX mixer group
+
+Horn Calls must follow the game's own Effects slider, which means routing the
+`AudioSource` through the mixer group vanilla sound effects use. There is no
+public handle on it. `AudioMan` exposes `m_masterMixer` (the `AudioMixer` itself),
+`m_ambientMixer` and `m_guiMixer` (both `AudioMixerGroup`) — everything except the
+one that is wanted. `AudioMan.GetSFXVolume()` / `SetSFXVolume(float)` are public
+and static, and the mixer's exposed parameter is named `SfxVol`, but a parameter
+value is not a group and cannot be assigned to `outputAudioMixerGroup`.
+
+Two approaches were considered:
+
+- **Read `SfxVol` and fold it into the source's `volume`.** Rejected: it
+  duplicates the mixer's own maths, it needs re-reading whenever the player moves
+  the slider mid-call, and it silently diverges the moment the game changes how
+  that parameter maps to gain.
+- **Borrow the group from something already routed to it.** Taken. Every vanilla
+  `ZSFX` prefab carries an `AudioSource` whose `outputAudioMixerGroup` *is* the SFX
+  group, so `HornAudio` walks `ZNetScene.instance.m_prefabs` on the first Horn
+  Call, takes the first prefab with a `ZSFX` whose `AudioSource` has a non-null
+  group, and caches it.
+
+The scan is lazy because `ZNetScene.instance` does not exist at plugin load, and
+it settles permanently once `ZNetScene` is up: the prefab list does not change
+after `Awake`, so a full scan that found nothing will not find anything later
+either, and re-walking a few thousand prefabs per Horn Call would be a waste.
+Before `ZNetScene` exists the scan stays unsettled and is retried on the next
+call.
+
+**Group name observed: to be filled in from the first in-game run.** The mod logs
+it once, at Info, as `SFX mixer group '<name>' taken from prefab '<prefab>'`.
+
+A missing group is a degradation, not a failure. The call still plays; it just
+sits outside the Effects slider, and a Warning says so once. This is why
+`HornAudio.IsReady` deliberately does **not** include the group in its answer,
+despite ticket 03's inline comment saying "clip loaded and mixer group found":
+ticket 04 gates playback on `IsReady`, so folding the group into it would turn a
+cosmetic fallback into total silence — the opposite of what the same ticket
+specifies two paragraphs earlier. `IsReady` means "this process has an
+`AudioListener` and the clip decoded", which is the question ticket 04 is actually
+asking.
+
+## Referencing UnityEngine.AudioModule from net472 costs two workarounds
+
+Audible Horn is the first net472 project in this repo to use types out of
+`UnityEngine.AudioModule`. Merely referencing the assembly is fine — the scaffold
+did that from ticket 01 and nothing complained. Touching a type inside it is not,
+and the two failures that follow look unrelated but are the same root cause.
+
+1. **CS1705.** `UnityEngine.AudioModule` is built against netstandard **2.1**;
+   a net472 target supplies the 2.0 facade, and the compiler refuses the moment it
+   has to load a type from the assembly. The fix is a `<Reference
+   Include="netstandard">` pointing at the game's own
+   `valheim_Data/Managed/netstandard.dll`. Retargeting is not an option in either
+   direction: netstandard2.1 cannot reference MushroomSync's net472, and net48 is
+   still capped at netstandard 2.0.
+
+2. **CS0518 on `AudioClip.SetData`**, caused by the fix for the first. With
+   netstandard 2.1 in the compilation the compiler now sees Unity's
+   `SetData(ReadOnlySpan<float>, int)` overload, and binding the call requires
+   resolving `ReadOnlySpan<T>` — which net472 does not define and Unity's
+   netstandard 2.1 only *forwards* to a Mono `mscorlib` this project does not
+   reference. The array overload is an exact match and is still unreachable,
+   because overload resolution has to type every candidate first. `WavLoader`
+   therefore picks `SetData(float[], int)` by signature through reflection, once
+   per process.
+
+The general shape to expect: any Unity API with both an array and a
+`Span`/`ReadOnlySpan` overload is unbindable from this project. Reach for
+reflection at that one call site rather than restructuring the reference set —
+pulling in the game's whole Mono BCL with `NoStdLib` was the alternative, and it
+would make this mod the only one here that does not build like the others.
 
 ## net472 is forced, not chosen
 
