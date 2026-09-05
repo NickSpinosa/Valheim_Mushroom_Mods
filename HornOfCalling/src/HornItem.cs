@@ -47,6 +47,10 @@ namespace HornOfCalling
         private static GameObject _prefabContainer;
         private static Recipe _recipe;
 
+        /// <summary>Latches the "no such station" warning to once per session. See
+        /// <see cref="FindStation"/> for why it would otherwise repeat forever.</summary>
+        private static bool _stationWarningLogged;
+
         // --- Registration -------------------------------------------------------
 
         /// <summary>
@@ -181,6 +185,13 @@ namespace HornOfCalling
         /// ZNetScene, because the station is needed from several patch points and this
         /// works at all of them. Logs what it did find on failure - a station name that
         /// changed between game versions is otherwise a silent missing recipe.
+        ///
+        /// That warning is latched to once per session on purpose. This is reached from
+        /// the Player.UpdateKnownRecipesList prefix, which fires on every inventory
+        /// change, so in exactly the case the warning exists to diagnose - a station
+        /// prefab that is genuinely gone - an unlatched log line would repeat for the
+        /// rest of the session and bury itself. The scan itself still runs every time:
+        /// it is the retry that picks the station up once it loads.
         /// </summary>
         private static CraftingStation FindStation()
         {
@@ -191,6 +202,9 @@ namespace HornOfCalling
             {
                 if (station != null && station.name == StationPrefabName) return station;
             }
+
+            if (_stationWarningLogged) return null;
+            _stationWarningLogged = true;
 
             var names = new List<string>();
             foreach (CraftingStation station in stations)
