@@ -30,7 +30,7 @@ mod does not have it yet.
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md` |
 | CraftableSpawners | `docs/design_decisions.md` |
 | MushroomSync | `docs/DESIGN.md` |
-| Separate Spawns | `docs/CONTEXT.md` |
+| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md` |
 | haldor-expansion | `docs/DESIGN.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | none yet |

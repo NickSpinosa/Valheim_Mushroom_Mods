@@ -10,10 +10,22 @@ namespace SeparateSpawns.Patches
         private static float _spawnWaitStartedAt = -1f;
         private static bool _loggedSpawnSyncTimeout;
 
-        private static void Postfix(Game __instance, ref Vector3 point, ref bool __result, ref bool usedLogoutPoint)
+        private static void Postfix(
+            Game __instance,
+            ref Vector3 point,
+            ref bool __result,
+            ref bool usedLogoutPoint,
+            bool ___m_respawnAfterDeath)
         {
-            // Respect logout point and beds.
-            if (usedLogoutPoint || __instance.GetPlayerProfile().HaveCustomSpawnPoint())
+            // Only replace vanilla's StartTemple fallback. Leave logout and bed alone —
+            // including while their zones are still streaming in (usedLogoutPoint is
+            // false until logout succeeds; diverting early sends the player to Group Spawn).
+            var profile = __instance.GetPlayerProfile();
+            if (SpawnOverrideDecision.ShouldLeaveVanillaAlone(
+                    ___m_respawnAfterDeath,
+                    profile.HaveLogoutPoint(),
+                    usedLogoutPoint,
+                    profile.HaveCustomSpawnPoint()))
             {
                 return;
             }
