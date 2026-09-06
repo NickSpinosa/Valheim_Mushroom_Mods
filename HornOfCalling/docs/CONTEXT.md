@@ -328,6 +328,194 @@ Two details in the decoder that are easy to get wrong:
 Mono is deliberate, not a size saving: Unity only spatialises mono clips properly, and
 the blast is a positional sound.
 
+## The volume slider lives in the vanilla Audio tab
+
+The blast volume is a `ConfigEntry<float>` on `Config`, and the row on the game's own
+**Settings → Audio** tab is a front end for it. The config file is the storage: OK writes
+the slider back into the entry, and assigning the entry both saves the file and raises
+`SettingChanged`, which is what actually applies the value. That way the F1
+ConfigurationManager overlay and a hand-edited `.cfg` reach the same place with no second
+code path.
+
+**It is deliberately not a MushroomSync setting.** The blast prefab is instantiated
+locally on every peer that hears it, so the level on *this* machine's prefab decides what
+*this* player hears and nothing else — the same shape as the game's own SFX slider. A
+host-authoritative version would let one player turn down horns in someone else's
+headphones.
+
+### Volume belongs on the prefab's ZSFX, not on the AudioSource
+
+`AudioSource.volume` is rewritten every frame:
+
+```csharp
+// ZSFX.CustomUpdate, while the source is playing
+m_audioSource.volume = vol * num * m_concurrencyVolumeModifier * m_volumeModifier;
+```
+
+where `vol` is `m_vol`, drawn in `Play()` as `Random.Range(m_minVol, m_maxVol)`. So the
+lever is `m_minVol`/`m_maxVol`, and setting both to the same number is what stops the
+horn varying. Setting them on the **prefab** — rather than on each instance — is enough:
+every blast is an `Instantiate` of it, the one you sound and the one a player 40 m away
+sounds, so one field reaches all of them with no per-instance code.
+
+`SetVolume` therefore tolerates the prefab not existing yet. The settings menu opens from
+the main menu, where `ObjectDB` has not produced a real item and `Attach` has never run.
+Nothing is lost, because `Attach` applies the configured level itself when it does build
+the prefab.
+
+### The Audio tab's rows, read out of AudioTab.prefab
+
+Read the same way the tankard's fields were — UnityPy over bundle `c4210710`, which holds
+`Assets/UI/prefabs/Settings/AudioTab.prefab`:
+
+```
+AudioTab
+  List
+    MasterVolume    <- the Slider component is on the row GameObject itself
+      Background, Fill Area/Fill, Handle Slide Area/Handle, Label, Value
+    SfxVolume
+    MusicVolume
+    ContinuosMusic  <- spelled that way in the prefab
+```
+
+The load-bearing detail is the first line: **the `Slider` is on the row, and the caption
+and the "50%" readout are its children.** So `Instantiate(m_sfxVolumeSlider.gameObject)`
+clones the entire row — background, fill, handle, layout and both texts — and no
+RectTransform has to be assembled by hand. Which matters beyond convenience: a
+hand-built row would not track the panel the next time it is restyled.
+
+`m_sfxVolumeText` is the `Value` child, so the clone's readout is found by that same name
+rather than a hardcoded `"Value"`, and the caption is the row's other `TMP_Text`.
+
+### Three traps in cloning a settings row
+
+**`RemoveAllListeners()` does not remove a persistent call.** The SFX slider carries an
+inspector-wired call to `AudioSettings.OnAudioChanged`, and the clone inherits it —
+pointing at the *real* `AudioSettings`, because `Instantiate` only re-targets references
+that live inside the copied subtree and that component sits on `AudioTab`, above it. So
+dragging the horn slider would re-apply the three vanilla volumes and rewrite their
+labels. `RemoveAllListeners` drops only listeners added from code; the persistent list
+survives it. Replacing the event object outright is what clears it:
+
+```csharp
+_slider.onValueChanged = new Slider.SliderEvent();
+```
+
+**The rows use `Navigation.Mode.Explicit`, not Automatic.** Each names the row above and
+below it by hand — `MasterVolume → SfxVolume → MusicVolume → ContinuosMusic`. A clone
+therefore arrives pointing at the *SFX* row's neighbours, and the row it was dropped
+after still points past it, so a gamepad or keyboard walking down the list skips the new
+row entirely and a player without a mouse can never reach it. Sibling index changes only
+the drawing order. Splicing in is three links, not one, because the row below has to
+point back up:
+
+```csharp
+next = previous.navigation.selectOnDown;
+GuiUtils.SetNavigationDown(previous, inserted);
+GuiUtils.SetNavigationUp(inserted, previous);
+GuiUtils.SetNavigationDown(inserted, next);
+GuiUtils.SetNavigationUp(next, inserted);
+```
+
+`GuiUtils` lives in `assembly_guiutils.dll` and does the `Navigation`-struct copy-back
+that assigning `selectable.navigation.selectOnDown` directly would silently discard.
+
+**The caption is a localization token.** `Label` holds the literal string
+`$settings_sfxvol`, resolved when `Localization` walks the panel. The mod ships no
+translation table, so the row is captioned with plain text instead — an unknown token
+would display as `$settings_hornvol` rather than failing. Text with no `$` passes through
+`Localize` unchanged, so a plain caption survives however often the panel is localized.
+Same reasoning as the item name.
+
+### Loudness at 100% lives in the clip, not in the code
+
+There is nowhere in the code to make the horn louder once it is already asking for full
+volume. `ZSFX.CustomUpdate` writes `m_audioSource.volume = vol * ...`, and Unity clamps
+`AudioSource.volume` to `0..1`, so `m_maxVol` above 1 buys nothing. Everything above that
+is fixed: the SFX mixer group is the player's setting, and the falloff curve is already
+1.0 at 0 m.
+
+So the lever is the recording, and the committed one had 5 dB sitting unused:
+
+| | Peak | Mean |
+|---|---|---|
+| As converted from the source MP3 | −5.38 dBFS | −21.1 dB |
+| Committed now | −0.30 dBFS | −16.0 dB |
+
+**Mean volume is the wrong number to judge this by, and it is the one `volumedetect`
+prints first.** The blast itself runs 0–2 s; what follows is a reverb tail decaying to
+−86 dBFS, and roughly the last 1.5 seconds is inaudible. Averaged over the file that tail
+drags the mean 15 dB below the peak, which reads like a quiet recording with lots of room
+to amplify. The peak is what actually caps the gain — and it allowed 5.08 dB, verified by
+checking the result has no samples sitting at the rail.
+
+Anything past that needs compression or limiting, which changes how the horn sounds rather
+than how loud it is. The `ffmpeg` line in the csproj carries the gain so the next
+regeneration does not silently undo it.
+
+A footnote on that line, found while regenerating: **`-fflags +bitexact` is positional,
+and the recipe originally had it in front of `-i`** — where it configures the demuxer, not
+the muxer, and ffmpeg goes back to writing a `LIST`/`INFO` chunk between `fmt ` and
+`data`. Harmless, since the decoder walks the chunks precisely because that chunk exists,
+but it is why the flag now sits with the output.
+
+### The preview is a settle timer, not a mouse-up
+
+A volume slider you cannot hear is most of a volume slider, so the row sounds the blast
+once when the player stops moving it.
+
+**Mouse-up alone would be wrong.** The row is also driven by arrow keys and a gamepad
+stick — that is what the navigation splice above exists for — and those produce a stream of
+`onValueChanged` calls and no release event at all, so a pointer-only trigger would leave
+the preview silent for exactly the players who cannot see a handle move under a cursor. A
+deadline pushed forward on every change covers both: keyboard fires a third of a second
+after the last nudge, and the pointer handlers only *suppress* it while the handle is
+actually held, so releasing fires at once because the deadline has already passed.
+
+It times on `Time.unscaledTime`. The settings menu pauses the game in single-player, and a
+scaled timer would never come due.
+
+**The AudioSource is added to the row itself**, not to a GameObject of the mod's own. The
+panel is destroyed on OK and Back, which takes the source with it and stops a preview still
+sounding after the menu closes — teardown that would otherwise have to be written and got
+right on both exits.
+
+**It plays a flat 2D source, but routed through the mixer group read off the blast
+prefab's own AudioSource.** The group has to come from the prefab rather than a name looked
+up on `AudioMan` — `AudioMan` exposes only its ambient and GUI groups — and going through
+it is what makes the preview obey Valheim's sound-effects slider, as the real blast does. A
+preview that skipped it would be reassuring about the wrong number. 2D is right despite the
+blast being positional: the level a player standing at the horn hears is the falloff curve
+at 0 m, which is 1, so a 2D source at the configured volume is the same number without
+depending on where the listener is standing or what reverb zone they are in.
+
+The consequence is that the preview is silent in the main menu, where `ObjectDB` holds no
+real items and the prefab has never been built. The slider still works there; it is logged
+at debug rather than warned about.
+
+### Lifecycle
+
+`Settings.CloseSettings` calls `Destroy(gameObject)` on **both** OK and Back, so the panel
+is built fresh every time the menu opens. The row is therefore rebuilt per opening and the
+static references are re-pointed by `Build`; there is nothing to keep alive between
+openings and no `Terminate` hook to write (`ISettingsTab.Terminate` is a default interface
+method that `AudioSettings` does not implement, so there is no method on the class to
+patch).
+
+The three patch points map to the three moments the menu offers:
+
+| Patch | Moment | What it does |
+|---|---|---|
+| `AudioSettings.Initialize` postfix | `Settings.Awake`, once per opening | clones the row, seeds it from the config |
+| `AudioSettings.OnOkAsync` postfix | OK | writes the slider back to the config entry |
+| `AudioSettings.OnBack` postfix | Back, or Escape | re-applies the saved value, discarding the drag |
+
+Applying live on drag and reverting on Back is what the vanilla rows do — they set
+`AudioListener.volume` immediately and restore an `m_oldVolume` in `OnBack`.
+
+`Valheim.SettingsGui.AudioSettings` collides with `UnityEngine.AudioSettings`, so it is
+imported under an alias rather than with a `using` of the namespace.
+
 ## Publicizer
 
 `ObjectDB.UpdateRegisters()` and `ZNetScene.m_namedPrefabs` are both private and both

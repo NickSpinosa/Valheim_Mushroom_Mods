@@ -98,13 +98,13 @@ namespace HornOfCalling
                 sfx.m_playOnAwake = true;
                 // The template is the mead burp, which is tuned to sound like one: it
                 // waits four to five seconds before playing, drops the pitch by a random
-                // amount and plays at 40% volume. A horn answers immediately and as-recorded.
+                // amount and plays at 40% volume. A horn answers immediately, and at the
+                // level ApplyVolume sets from the player's own setting.
                 sfx.m_minDelay = 0f;
                 sfx.m_maxDelay = 0f;
                 sfx.m_minPitch = 1f;
                 sfx.m_maxPitch = 1f;
-                sfx.m_minVol = 1f;
-                sfx.m_maxVol = 1f;
+
                 // Inherited as "$caption_burp". Cleared rather than replaced - the mod
                 // ships no translation table, so any token here would display raw.
                 sfx.m_closedCaptionToken = string.Empty;
@@ -114,6 +114,7 @@ namespace HornOfCalling
                 sfx.m_hash = EffectPrefabName.GetStableHashCode();
 
                 ShapeFalloff(EffectPrefab.GetComponent<AudioSource>());
+                ApplyVolume();
 
                 // The clip is attached last, and its absence is tolerated, because the
                 // prefab has to exist on every peer whether or not the audio decoded.
@@ -146,6 +147,72 @@ namespace HornOfCalling
                     m_inheritParentRotation = true,
                 },
             };
+            return true;
+        }
+
+        /// <summary>
+        /// Pushes the configured blast volume onto the effect prefab.
+        ///
+        /// The prefab is the right place for it: ZSFX.Play() reads m_minVol/m_maxVol
+        /// off its own component, and every blast - the one you sound and the one a
+        /// player 40 m away sounds - is an Instantiate of this prefab on this machine,
+        /// so the level applies to all of them without touching any per-instance code.
+        /// Setting AudioSource.volume instead would be overwritten: ZSFX rewrites it
+        /// every frame from m_vol.
+        ///
+        /// Silently does nothing before <see cref="Attach"/> has built the prefab -
+        /// which is the case in the main menu, where the settings screen can still be
+        /// opened. Nothing is lost, because Attach applies the configured level itself.
+        /// </summary>
+        internal static void SetVolume(float volume)
+        {
+            ZSFX sfx = EffectPrefab != null ? EffectPrefab.GetComponent<ZSFX>() : null;
+            if (sfx == null) return;
+
+            // Both ends of the range: ZSFX picks a random level between them, and the
+            // horn is not meant to vary.
+            sfx.m_minVol = sfx.m_maxVol = Mathf.Clamp01(volume);
+        }
+
+        /// <summary>Applies the saved setting, discarding any uncommitted slider drag.</summary>
+        internal static void ApplyVolume()
+        {
+            SetVolume(Plugin.BlastVolume.Value);
+        }
+
+        /// <summary>
+        /// Points an AudioSource at the blast so the settings slider can preview it,
+        /// returning false if there is nothing to preview yet.
+        ///
+        /// Routed through the mixer group the blast prefab's own AudioSource carries,
+        /// rather than a group looked up by name, so the preview passes through
+        /// Valheim's sound-effects slider exactly as the real blast does - a preview
+        /// that ignored it would be reassuring about the wrong number.
+        ///
+        /// Flat 2D, though: the blast is positional, but a preview is about level, and
+        /// the level a player standing at the horn hears is the falloff curve at 0 m,
+        /// which is 1. So a 2D source at the configured volume is the same number the
+        /// 3D one would produce, without depending on where the listener happens to be
+        /// or on the reverb of the room they are in.
+        ///
+        /// Returns false in the main menu, where ObjectDB holds no real items and
+        /// <see cref="Attach"/> has never run, so there is no prefab to read the mixer
+        /// group off. The slider still works there; it is only silent.
+        /// </summary>
+        internal static bool PrepareToPreview(AudioSource source)
+        {
+            if (source == null) return false;
+
+            AudioSource template = EffectPrefab != null ? EffectPrefab.GetComponent<AudioSource>() : null;
+            AudioClip clip = template != null ? LoadClip() : null;
+            if (clip == null) return false;
+
+            source.clip = clip;
+            source.outputAudioMixerGroup = template.outputAudioMixerGroup;
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 0f;
+            source.bypassReverbZones = true;
             return true;
         }
 
