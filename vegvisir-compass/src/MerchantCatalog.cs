@@ -43,7 +43,7 @@ namespace VegvisirCompass
                 DisplayName = "Haldor",
                 RuneStoneLocationNames = new[] { "Runestone_BlackForest" },
                 TraderPrefabName = "Haldor",
-                GuidanceMinDistanceFromCentre = 1500f,
+                GuidanceMinDistanceFromCentre = 750f,
             },
             new MerchantDef
             {
@@ -51,7 +51,7 @@ namespace VegvisirCompass
                 DisplayName = "Hildir",
                 RuneStoneLocationNames = new[] { "Runestone_Meadows", "Runestone_Plains" },
                 TraderPrefabName = "Hildir",
-                GuidanceMinDistanceFromCentre = 3000f,
+                GuidanceMinDistanceFromCentre = 1500f,
             },
             new MerchantDef
             {
@@ -59,7 +59,7 @@ namespace VegvisirCompass
                 DisplayName = "Bog Witch",
                 RuneStoneLocationNames = new[] { "Runestone_Swamps" },
                 TraderPrefabName = "BogWitch",
-                GuidanceMinDistanceFromCentre = 3000f,
+                GuidanceMinDistanceFromCentre = 1500f,
             },
         };
 

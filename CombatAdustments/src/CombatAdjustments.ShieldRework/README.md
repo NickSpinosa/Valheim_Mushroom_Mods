@@ -49,6 +49,13 @@ and already-eaten feasts pick up the new numbers.
 
 Boss unlocks are **not** configurable.
 
+### Sailing
+
+Calm wind (**0–60%**) keeps the vanilla intensity ramp (**0.287 → 0.7**). Above
+60% the factor keeps climbing linearly to **2.0** at full storm. Ocean
+ThunderStorm chance is raised from ~**7%** to **21%**. See
+[`docs/sailing.md`](../../docs/sailing.md).
+
 ## Install
 
 1. Requires [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) for Valheim.
@@ -89,6 +96,11 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
 - `Feasts.EnableStatBonuses` / `HealthBonus` / `StaminaBonus` /
   `SailorsHealthBonus` / `SailorsStaminaBonus` / `MistlandsEitrBonus` /
   `AshlandsEitrBonus`. Unlock bosses are hardcoded.
+- `Sailing.EnableWindCurve` / `CalmForceFactor` / `KneeForceFactor` /
+  `MaxForceFactor` / `CalmWindCeiling` — calm matches vanilla to 60%, then
+  storms ramp to MaxForceFactor (see `docs/sailing.md`).
+- `Sailing.EnableOceanStormChance` / `OceanThunderStormChance` — Ocean
+  ThunderStorm target chance (default **21%**, vanilla ~7%).
 
 ### Multiplayer config sync
 
@@ -127,3 +139,7 @@ No `devcommands` required.
 - Feast food stats mutate the same shared data. Spice unlocks rewrite Bog Witch
   `m_requiredGlobalKey`; Black Forest / Swamp recipes are extra-gated because they
   share Woodland Herb Blend with Meadows.
+- Sailing: Harmony prefix on `Ship.GetSailForce` swaps the intensity factor for
+  the calm/storm curve when `Sailing.EnableWindCurve` is on. Ocean ThunderStorm
+  weight is rewritten in `EnvMan.InitializeBiomeEnvSetup` to hit
+  `OceanThunderStormChance`.

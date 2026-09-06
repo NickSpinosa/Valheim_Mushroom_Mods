@@ -14,7 +14,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.5.0";
+    public const string PluginVersion = "0.6.0";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -51,6 +51,14 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> SailorsFeastStaminaBonus = null!;
     internal static ConfigEntry<float> MistlandsFeastEitrBonus = null!;
     internal static ConfigEntry<float> AshlandsFeastEitrBonus = null!;
+
+    internal static ConfigEntry<bool> EnableSailingWindCurve = null!;
+    internal static ConfigEntry<float> SailingCalmForceFactor = null!;
+    internal static ConfigEntry<float> SailingKneeForceFactor = null!;
+    internal static ConfigEntry<float> SailingMaxForceFactor = null!;
+    internal static ConfigEntry<float> SailingCalmWindCeiling = null!;
+    internal static ConfigEntry<bool> EnableOceanStormChance = null!;
+    internal static ConfigEntry<float> OceanThunderStormChance = null!;
 
     /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
     internal static ConfigSync Sync = null!;
@@ -114,6 +122,21 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         AshlandsFeastEitrBonus = ModConfig.Bind("Feasts", "AshlandsEitrBonus", 12f,
             "Extra eitr added to Ashlands Gourmet Bowl (vanilla 38 → 50). Also receives HealthBonus / StaminaBonus.");
 
+        EnableSailingWindCurve = ModConfig.Bind("Sailing", "EnableWindCurve", true,
+            "Replace vanilla linear wind→sail force with a two-segment curve (calm matches vanilla to 60%, storms ramp higher).");
+        SailingCalmForceFactor = ModConfig.Bind("Sailing", "CalmForceFactor", 0.287f,
+            "Sail intensity factor at 0% wind. Vanilla uses ~0.287 at the 5% clamp floor.");
+        SailingKneeForceFactor = ModConfig.Bind("Sailing", "KneeForceFactor", 0.7f,
+            "Sail intensity factor at CalmWindCeiling (default 60%). Matches vanilla Lerp(0.25,1,0.6).");
+        SailingMaxForceFactor = ModConfig.Bind("Sailing", "MaxForceFactor", 2f,
+            "Sail intensity factor at 100% wind (vanilla tops out at 1).");
+        SailingCalmWindCeiling = ModConfig.Bind("Sailing", "CalmWindCeiling", 0.6f,
+            "Wind intensity (0–1) where the calm segment ends and the storm ramp begins. Clear weather tops out here.");
+        EnableOceanStormChance = ModConfig.Bind("Sailing", "EnableOceanStormChance", true,
+            "Raise Ocean biome ThunderStorm weight so storms occur more often while sailing.");
+        OceanThunderStormChance = ModConfig.Bind("Sailing", "OceanThunderStormChance", 0.21f,
+            "Target chance (0–1) of ThunderStorm on the Ocean biome. Vanilla is ~0.071 (7%). Default 0.21 = 21%.");
+
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
@@ -133,7 +156,14 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             SailorsFeastHealthBonus,
             SailorsFeastStaminaBonus,
             MistlandsFeastEitrBonus,
-            AshlandsFeastEitrBonus);
+            AshlandsFeastEitrBonus,
+            EnableSailingWindCurve,
+            SailingCalmForceFactor,
+            SailingKneeForceFactor,
+            SailingMaxForceFactor,
+            SailingCalmWindCeiling,
+            EnableOceanStormChance,
+            OceanThunderStormChance);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
         // bookkeeping, and SyncConfigInMultiplayer is the opt-out itself - a client
@@ -153,9 +183,15 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         HookFeastConfigChange(MistlandsFeastEitrBonus);
         HookFeastConfigChange(AshlandsFeastEitrBonus);
 
+        HookOceanWeatherConfigChange(EnableOceanStormChance);
+        HookOceanWeatherConfigChange(OceanThunderStormChance);
+
         ApplyOverlayToStaticEntries();
 
         Sync.WatchForChanges(ModConfig).Start();
+
+        // EnvMan may already be awake if this plugin loads late.
+        OceanWeather.Apply();
 
         ConsoleCommands.Register(); // safe if Terminal not ready yet; patch also registers on InitTerminal
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
@@ -182,6 +218,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     /// </summary>
     private static void ApplyRuntimeFromConfig()
     {
+        OceanWeather.Apply();
+
         if (ObjectDB.instance == null)
             return;
 
@@ -203,6 +241,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             if (ObjectDB.instance != null)
                 FeastStats.ApplyToObjectDB(ObjectDB.instance);
         };
+
+    private static void HookOceanWeatherConfigChange<T>(ConfigEntry<T> entry) =>
+        entry.SettingChanged += (_, __) => OceanWeather.Apply();
 
     private static void ApplyOverlayToStaticEntries() =>
         ConfigPaths.ApplyOverlayToStaticEntries(ModConfig);
