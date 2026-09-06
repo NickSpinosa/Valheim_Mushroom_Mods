@@ -1,7 +1,7 @@
 # Horn of Calling
 
 Adds a craftable **Horn of Calling** to the Workbench. Equip it and left click to sound
-a blast.
+a blast. Its volume is a slider on the Audio tab of the game's settings menu.
 
 > **Status: in progress.** The horn looks and sounds right, costs **1 Bronze + 1 Deer
 > Hide** at a level 1 Workbench, and is heard by other players out to 64 m. What is left
@@ -61,6 +61,50 @@ The blast is not played by a patch. The clip — a 16-bit PCM WAV embedded in th
 assembly, decoded in [`src/HornSound.cs`](src/HornSound.cs) — is hung off the item's
 `m_startEffect`, which the game fires once per attack after the stamina check. That
 also routes it through the SFX mixer group, so the player's volume slider applies.
+
+The clip is peak-normalised to −0.3 dBFS, and that is the whole of the horn's loudness at
+100%: Unity clamps `AudioSource.volume` at 1, so once the mod asks for full volume the
+only headroom left is inside the recording.
+
+The volume row in [`src/VolumeSlider.cs`](src/VolumeSlider.cs) is the vanilla SFX row
+cloned: the `Slider` sits on the row GameObject with its caption and percentage as
+children, so one `Instantiate` copies the whole thing. It is then retitled, spliced into
+the tab's navigation chain, and pointed at the config entry.
+
+## Settings
+
+**Settings → Audio → Horn of Calling**, sitting under the three vanilla volume sliders.
+It moves live while you drag it, saves on **OK** and is discarded on **Back**, the same as
+the sliders above it.
+
+The value is stored in `BepInEx/config/com.greg.hornofcalling.cfg`:
+
+```ini
+[Audio]
+## How loud the horn blast is, as a fraction of the recorded level. [...]
+# Setting type: Single
+# Default value: 1
+# Acceptable value range: From 0 to 1
+BlastVolume = 1
+```
+
+Editing the file, or the F1 ConfigurationManager overlay if you have it, applies without
+a restart — the settings row is a front end for this entry, not a separate setting.
+
+It multiplies Valheim's own sound-effects volume rather than replacing it, and it is
+**per player**: it changes every blast *you* hear, whoever sounded it, and never what
+anyone else hears. That is why it is not synced through MushroomSync — see
+[docs/CONTEXT.md](docs/CONTEXT.md).
+
+The horn sounds once as a preview when you stop moving the slider — on releasing the
+handle, or a third of a second after the last arrow-key or stick nudge — at the level
+you have just chosen, through the same mixer group as the real blast. Moving it again
+restarts the preview rather than layering a second copy over it, and closing the menu
+stops it.
+
+Opened from the **main menu** the slider still works, but is silent: the blast prefab is
+built from the world's `ObjectDB`, so there is nothing to preview until a world is
+loaded.
 
 ## Not done yet
 
@@ -123,6 +167,15 @@ Workbench and confirm the recipe appears for 1 Bronze + 1 Deer Hide. Equip the h
 left click — the blast is ~4.9 s.
 
 `spawn Bronze 1` and `spawn DeerHide 1` put the materials in reach for a quick check.
+
+For the volume slider: **Esc → Settings → Audio**, check the row reads "Horn of Calling"
+and shows a percentage, drag it, press OK, and confirm `BlastVolume` in the config file
+changed. Releasing the handle should sound the horn once at the new level, and dragging
+again should cut the previous preview off rather than stack on it. Walking the list with
+the arrow keys or a gamepad should stop on the row and preview a third of a second after
+you stop nudging — if the row is skipped entirely, the navigation splice is what to look
+at. Pressing Back after a drag should leave the config untouched and the next blast at the
+old level.
 
 The prefab name is case-sensitive and is *not* the display name: `spawn "Horn of Calling"`
 will not work.
