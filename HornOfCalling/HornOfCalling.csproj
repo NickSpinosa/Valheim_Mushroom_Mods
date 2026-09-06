@@ -13,7 +13,19 @@
     The horn blast, embedded rather than shipped beside the DLL so a release stays a
     single file. Committed as 16-bit PCM: it is decoded by hand at runtime, which needs
     no file on disk and no coroutine. Regenerate from a source recording with:
-      ffmpeg -fflags +bitexact -i <in> -ac 1 -ar 44100 -c:a pcm_s16le -flags +bitexact assets/viking.wav
+      ffmpeg -i <in> -af volume=5.08dB -ac 1 -ar 44100 -c:a pcm_s16le \
+             -fflags +bitexact -flags +bitexact assets/viking.wav
+
+    Both bitexact flags belong AFTER the input. -fflags is positional, and in front of
+    -i it configures the demuxer instead of the muxer, which leaves ffmpeg writing a
+    LIST/INFO chunk between `fmt ` and `data`. The decoder walks the chunks and so reads
+    that file correctly anyway - this is only about keeping the committed one plain.
+
+    The gain is where the horn's loudness at 100% comes from: Unity clamps
+    AudioSource.volume at 1, so once the mod asks for full volume the only headroom left
+    is inside the clip. 5.08 dB takes the source recording's -5.38 dBFS peak to -0.30,
+    with no sample landing on the rail. Check that after regenerating - and keep the
+    gain, or the horn quietly loses 5 dB.
   -->
   <ItemGroup>
     <EmbeddedResource Include="assets/viking.wav" LogicalName="HornOfCalling.viking.wav" />
@@ -43,10 +55,19 @@
       <HintPath>$(ValheimManaged)/assembly_utils.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- GuiUtils, for splicing the settings row into the tab's navigation chain.
+         Nothing here is private, so it is not publicized. -->
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(ValheimManaged)/assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.AudioModule">
+    <!-- UI and TextMeshPro are for the settings-menu row: the cloned Slider and the
+         caption and percentage texts on it. Both were already in the CI action's
+         required-assembly list, so no workflow change was needed. -->
+    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.AudioModule;UnityEngine.UI;UnityEngine.UIModule;UnityEngine.TextRenderingModule;Unity.TextMeshPro">
       <HintPath>$(ValheimManaged)/%(Identity).dll</HintPath>
       <Private>false</Private>
     </Reference>
