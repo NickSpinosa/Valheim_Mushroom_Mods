@@ -25,6 +25,7 @@ namespace HaldorExpansion
         private static readonly string[] SearchTerms =
         {
             "stone", "wood", "surtling", "core", "graus", "ash",
+            "mist", "torch", "wisp", "demister",
         };
 
         public static void DumpOnce(Trader trader, List<Trader.TradeItem> available)
@@ -106,7 +107,7 @@ namespace HaldorExpansion
         private static void DumpTargets(StringBuilder sb)
         {
             sb.AppendLine();
-            sb.AppendLine("--- OUR FIVE TARGETS ---");
+            sb.AppendLine("--- OUR TRADE TARGETS ---");
             foreach (var entry in TradeTable.Haldor)
             {
                 var itemDrop = PrefabCache.Resolve(entry.PrefabName);

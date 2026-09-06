@@ -11,7 +11,7 @@ namespace HaldorExpansion
     {
         public const string PluginId = "nicks.haldorexpansion";
         public const string PluginName = "Haldor Expansion";
-        public const string PluginVersion = "0.3.0";
+        public const string PluginVersion = "0.4.0";
 
         internal static ManualLogSource Log;
         internal static ModConfig Settings;
@@ -30,7 +30,11 @@ namespace HaldorExpansion
 
             Sync = ConfigSync.Create(PluginId, PluginVersion, Logger)
                 .Protecting(Config)
-                .OnApplied(() => Log.LogInfo("Trade table hash: " + TradeTable.Hash));
+                .OnApplied(() =>
+                {
+                    SuperMistTorch.RefreshFromConfig();
+                    Log.LogInfo("Trade table hash: " + TradeTable.Hash);
+                });
 
             Settings = new ModConfig(Config);
 

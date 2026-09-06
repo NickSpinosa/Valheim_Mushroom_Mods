@@ -1,7 +1,7 @@
 # Haldor Expansion
 
-Private Valheim mod. Adds five gathering materials to Haldor's stock to relieve
-resource scarcity on a long-lived dedicated server.
+Private Valheim mod. Adds gathering materials and a Super Mist Torch to Haldor's
+stock to relieve resource scarcity on a long-lived dedicated server.
 
 See [DESIGN.md](docs/DESIGN.md) for the full design and the reasoning behind each decision.
 
@@ -24,13 +24,7 @@ use the release's `MushroomMods-plugins.zip`, which carries both.
 Prices, the Ashlands global key spelling, and the prefab IDs are **provisional**.
 Launch the game once and load a world; the mod writes a `HALDOR EXPANSION ::
 VERIFICATION DUMP` block to `BepInEx\LogOutput.log` the first time any trader's
-stock is queried. That dump resolves all four open questions:
-
-- the real global key list (the Ashlands key is not a string literal in the game
-  assembly, so its spelling cannot be read out of the binary)
-- vanilla Haldor's actual prices, to re-anchor the table
-- correct prefab spellings for all five items
-- each item's max stack size vs. our configured stack
+stock is queried. That dump resolves the open gathering-item questions.
 
 Bake the real values into `src/TradeTable.cs` afterwards.
 
@@ -66,15 +60,26 @@ UnlockBoss = Queen
 Enabled = true
 Cost = 100
 UnlockBoss = Bonemass
+
+[Items.SuperMistTorch]
+Enabled = true
+Cost = 100
+UnlockBoss = Queen
 ```
 
 `Cost` is coins **per unit**. One purchase still delivers the baked stack (50 wood,
-5 surtling cores, …), so the coins charged are `Cost × stack`. Disable an item with
-`Enabled = false`.
+5 surtling cores, 1 Super Mist Torch, …), so the coins charged are `Cost × stack`.
+Disable an item with `Enabled = false`.
 
 `UnlockBoss` is the boss that must already be defeated on this world before the
 item appears. Allowed values: `None`, `Eikthyr`, `Elder`, `Bonemass`, `Moder`,
 `Yagluth`, `Queen`, `Fader`. `None` means always in stock.
+
+### Super Mist Torch
+
+Custom placeable cloned from the vanilla Wisp Torch. Twice the size, clears mist
+in a 100 m radius. Buy it from Haldor (after the Queen), then place it with the
+Hammer — the hammer recipe consumes the bought item. Deconstructing refunds it.
 
 When `LockConfiguration` is on (the default) and this plugin is also on the server,
 joining clients use the server's Enabled / Cost / UnlockBoss values. Their local

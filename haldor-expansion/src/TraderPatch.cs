@@ -24,6 +24,8 @@ namespace HaldorExpansion
 
             Diagnostics.DumpOnce(__instance, __result);
 
+            SuperMistTorch.RefreshFromConfig();
+
             if (PrefabName(__instance.gameObject) != TradeTable.HaldorPrefab) return;
 
             foreach (var entry in TradeTable.Haldor)

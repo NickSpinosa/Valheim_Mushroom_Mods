@@ -6,7 +6,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>HaldorExpansion</AssemblyName>
     <RootNamespace>HaldorExpansion</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <!-- Game assemblies are not CLS-compliant and produce noisy analyzer output. -->
@@ -18,6 +18,15 @@
 
   <ItemGroup>
     <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+
+  <!--
+    ObjectDB.UpdateRegisters and ZNetScene.m_namedPrefabs are private; both are
+    needed to register the Super Mist Torch at runtime. Build-time only — no
+    runtime dependency. Same approach as HornOfCalling / vegvisir-compass.
+  -->
+  <ItemGroup>
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
   </ItemGroup>
 
   <!--
@@ -42,11 +51,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="assembly_valheim">
+    <Reference Include="assembly_valheim" Publicize="true">
       <HintPath>$(ManagedDir)\assembly_valheim.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="assembly_utils">
+    <Reference Include="assembly_utils" Publicize="true">
       <HintPath>$(ManagedDir)\assembly_utils.dll</HintPath>
       <Private>false</Private>
     </Reference>
@@ -56,6 +65,10 @@
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">

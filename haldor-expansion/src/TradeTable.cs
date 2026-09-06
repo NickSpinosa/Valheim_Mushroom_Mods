@@ -95,6 +95,9 @@ namespace HaldorExpansion
 
             // Burial Chambers never regenerate.
             new TradeEntry("SurtlingCore", 5, 500, UnlockBoss.Bonemass),
+
+            // Custom piece (cloned from piece_groundtorch_mist). See SuperMistTorch.cs.
+            new TradeEntry(SuperMistTorch.PrefabName, 1, 100, UnlockBoss.Queen),
         };
 
         /// <summary>
