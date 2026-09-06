@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>HornOfCalling</AssemblyName>
+    <RootNamespace>HornOfCalling</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Horn of Calling</Product>
+    <Description>Adds a craftable Horn of Calling that sounds a blast when used.</Description>
+  </PropertyGroup>
+
+  <!--
+    The horn blast, embedded rather than shipped beside the DLL so a release stays a
+    single file. Committed as 16-bit PCM: it is decoded by hand at runtime, which needs
+    no file on disk and no coroutine. Regenerate from a source recording with:
+      ffmpeg -fflags +bitexact -i <in> -ac 1 -ar 44100 -c:a pcm_s16le -flags +bitexact assets/viking.wav
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="assets/viking.wav" LogicalName="HornOfCalling.viking.wav" />
+  </ItemGroup>
+
+  <!--
+    ObjectDB.UpdateRegisters and ZNetScene.m_namedPrefabs are private, and both are
+    needed to register a prefab at runtime. The publicizer rewrites the reference
+    assemblies at build time only - it changes nothing at runtime and adds no
+    dependency for players. Same approach as vegvisir-compass.
+  -->
+  <ItemGroup>
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    Game and BepInEx assemblies come straight out of the install, as everywhere else
+    in this repo. Private=false keeps them out of bin/ - they exist at runtime already,
+    and shipping copies would redistribute game binaries.
+  -->
+  <ItemGroup>
+    <Reference Include="assembly_valheim" Publicize="true">
+      <HintPath>$(ValheimManaged)/assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils" Publicize="true">
+      <HintPath>$(ValheimManaged)/assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.AudioModule">
+      <HintPath>$(ValheimManaged)/%(Identity).dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx;0Harmony;BepInEx.Harmony">
+      <HintPath>$(BepInExCore)/%(Identity).dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+    Drop the built plugin straight into BepInEx/plugins so a build is immediately
+    testable. Skipped silently when the folder is absent (e.g. CI).
+  -->
+  <Target Name="DeployToBepInEx" AfterTargets="Build" Condition="Exists('$(BepInExPlugins)')">
+    <!-- Valheim keeps the DLL memory-mapped while running, so this copy fails on a
+         file lock mid-session. The assembly compiled fine; only deployment failed. -->
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExPlugins)" Retries="0" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="CopiedFiles" ItemName="DeployedPlugin" />
+    </Copy>
+    <Message Importance="high" Condition="'@(DeployedPlugin)' != ''"
+             Text="Deployed $(TargetFileName) -> $(BepInExPlugins)" />
+    <Warning Condition="'@(DeployedPlugin)' == ''"
+             Text="Build succeeded but the plugin could not be deployed - Valheim is holding the DLL. Close the game and rebuild." />
+  </Target>
+
+</Project>
