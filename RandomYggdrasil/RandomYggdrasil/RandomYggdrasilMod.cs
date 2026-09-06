@@ -8,6 +8,7 @@ using UnityEngine;
 namespace RandomYggdrasil
 {
     [BepInPlugin(PluginId, PluginName, PluginVersion)]
+    [BepInDependency(MushroomSync.MushroomSyncPlugin.PluginGuid)]
     [BepInProcess("valheim.exe")]
     [BepInProcess("valheim_server.exe")]
     public class RandomYggdrasilMod : BaseUnityPlugin
@@ -36,7 +37,7 @@ namespace RandomYggdrasil
                 "If on, the server owns world rotations and connected clients use the server's values.");
 
             harmony.PatchAll();
-            RotationSync.Initialize(harmony);
+            RotationSync.Initialize(Logger);
             Debug.Log($"RandomYggdrasil: Loaded ({(IsDedicatedServer() ? "dedicated server" : "client")}), config at '{modConfig.ConfigFilePath}'");
         }
 

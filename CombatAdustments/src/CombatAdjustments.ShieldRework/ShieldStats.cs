@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using HarmonyLib;
+using MushroomSync;
 using UnityEngine;
 
 namespace CombatAdjustments.ShieldRework;
@@ -127,8 +128,10 @@ internal static class ShieldStats
             prefab,
             def,
             $"Max-quality flat stagger grant for {prefab}. 0 disables.");
-        ConfigSync.Register(GrantConfigs[prefab]);
-        GrantConfigs[prefab].SettingChanged += (_, __) => ConfigSync.OnServerConfigChanged();
+        // Rebroadcasting on change is handled by ConfigSync.WatchForChanges, which
+        // watches the file rather than each entry - grants are bound lazily per
+        // prefab, so per-entry hooks would multiply as shields are discovered.
+        ShieldReworkPlugin.Sync.Register(GrantConfigs[prefab]);
     }
 
     internal static float GetMaxGrant(string prefab)

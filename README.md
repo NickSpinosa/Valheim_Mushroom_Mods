@@ -15,6 +15,7 @@ Mushroom mods are a small collection of utility and quality of life mods designe
 | [Craftable Spawners](CraftableSpawners) | Craftable natural spawners |
 | [Random Yggdrasil](RandomYggdrasil) | Randomises the Yggdrasil branch rotation per world, synced across the server |
 | [Horn of Calling](HornOfCalling/README.md) | Craft a horn at the Workbench that sounds a blast other players hear out to 64 m |
+| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil |
 
 ## Installing
 
@@ -30,13 +31,18 @@ Valheim/
         ├── CombatAdjustments.ShieldRework.dll
         ├── CraftableSpawners.dll
         ├── HaldorExpansion.dll
+        ├── HornOfCalling.dll
+        ├── MushroomSync.dll
         ├── RandomYggdrasil.dll
         ├── SeparateSpawns.dll
         └── VegvisirCompass.dll
 ```
 
-Want only some of them? Extract the zip and delete the DLLs you do not want —
-each mod is independent.
+Want only some of them? Extract the zip and delete the DLLs you do not want.
+Keep `MushroomSync.dll` if you keep Combat Adjustments, Craftable Spawners,
+Haldor Expansion or Random Yggdrasil — they depend on it and will not load
+without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
+independent.
 
 Most of these mods are server-authoritative, so install them on **every client
 and on the dedicated server**; check each mod's own README.

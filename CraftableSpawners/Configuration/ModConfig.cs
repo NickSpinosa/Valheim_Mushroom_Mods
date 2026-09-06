@@ -38,16 +38,12 @@ sealed class ModConfig
     {
         ConfigEntry<T> configEntry = ConfigFile.Bind(group, name, value, description);
         if (synchronizedSetting)
-            SpawnerConfigSync.Register(configEntry);
+            CraftableSpawnersPlugin.Sync.Register(configEntry);
         return configEntry;
     }
 
     private ConfigEntry<T> Config<T>(string group, string name, T value, string description, bool synchronizedSetting = true) =>
         Config(group, name, value, new ConfigDescription(description), synchronizedSetting);
-
-    /// <summary>Server value when connected to a modded server, local value otherwise.</summary>
-    private static T Get<T>(ConfigEntry<T> entry) =>
-        SpawnerConfigSync.TryGetSyncedValue(entry, out T synced) ? synced : entry.Value;
 
     internal ModConfig(ConfigFile configFile)
     {
@@ -115,24 +111,28 @@ sealed class ModConfig
         configFile.SaveOnConfigSet = true;
     }
 
+    // Rebroadcasting to clients is handled by ConfigSync.WatchForChanges; this only
+    // has to refresh the local spawner prefabs.
     private static void HookGameplaySettingChanged<T>(ConfigEntry<T> entry)
     {
-        entry.SettingChanged += (_, _) =>
-        {
-            SpawnerSetup.RefreshFromConfig();
-            SpawnerConfigSync.OnServerConfigChanged();
-        };
+        entry.SettingChanged += (_, _) => SpawnerSetup.RefreshFromConfig();
     }
+
+    /// <summary>
+    /// Host-side switch: whether this machine publishes its spawner settings when it
+    /// is the server. Not synced itself, so a client keeps its own answer.
+    /// </summary>
+    internal bool LockConfiguration => lockConfiguration.Value;
 
     internal bool EnableDebugMessages => enableDebugMessages.Value;
 
     internal bool IsEnabled(SpawnerId id) => id switch
     {
-        SpawnerId.Skeleton => Get(enableSkeleton),
-        SpawnerId.Greydwarf => Get(enableGreydwarf),
-        SpawnerId.Draugr => Get(enableDraugr),
-        SpawnerId.Surtling => Get(enableSurtling),
-        SpawnerId.TarBlob => Get(enableTarBlob),
+        SpawnerId.Skeleton => enableSkeleton.Value,
+        SpawnerId.Greydwarf => enableGreydwarf.Value,
+        SpawnerId.Draugr => enableDraugr.Value,
+        SpawnerId.Surtling => enableSurtling.Value,
+        SpawnerId.TarBlob => enableTarBlob.Value,
         _ => false
     };
 
@@ -140,30 +140,30 @@ sealed class ModConfig
     {
         SpawnerId.Skeleton =>
         [
-            ("BoneFragments", Get(skeletonBoneFragments)),
-            ("TrophySkeleton", Get(skeletonTrophies))
+            ("BoneFragments", skeletonBoneFragments.Value),
+            ("TrophySkeleton", skeletonTrophies.Value)
         ],
         SpawnerId.Greydwarf =>
         [
-            ("GreydwarfEye", Get(greydwarfEyes)),
-            ("AncientSeed", Get(greydwarfAncientSeeds)),
-            ("TrophyGreydwarf", Get(greydwarfTrophies))
+            ("GreydwarfEye", greydwarfEyes.Value),
+            ("AncientSeed", greydwarfAncientSeeds.Value),
+            ("TrophyGreydwarf", greydwarfTrophies.Value)
         ],
         SpawnerId.Draugr =>
         [
-            ("Entrails", Get(draugrEntrails)),
-            ("TrophyDraugr", Get(draugrTrophies))
+            ("Entrails", draugrEntrails.Value),
+            ("TrophyDraugr", draugrTrophies.Value)
         ],
         SpawnerId.Surtling =>
         [
-            ("SurtlingCore", Get(surtlingCores)),
-            ("Coal", Get(surtlingCoal)),
-            ("TrophySurtling", Get(surtlingTrophies))
+            ("SurtlingCore", surtlingCores.Value),
+            ("Coal", surtlingCoal.Value),
+            ("TrophySurtling", surtlingTrophies.Value)
         ],
         SpawnerId.TarBlob =>
         [
-            ("Tar", Get(tarBlobTar)),
-            ("TrophyGrowth", Get(tarBlobTrophies))
+            ("Tar", tarBlobTar.Value),
+            ("TrophyGrowth", tarBlobTrophies.Value)
         ],
         _ => []
     };

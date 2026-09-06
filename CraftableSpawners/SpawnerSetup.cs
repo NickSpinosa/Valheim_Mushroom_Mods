@@ -304,7 +304,7 @@ internal static class SpawnerSetup
         if (!piece)
             return;
 
-        ModConfig config = CraftableSpawnersPlugin.ConfigSyncWrapper;
+        ModConfig config = CraftableSpawnersPlugin.Settings;
         List<(string item, int amount)> recipe = config.GetRecipe(def.Id);
         List<Piece.Requirement> requirements = [];
 
@@ -367,7 +367,7 @@ internal static class SpawnerSetup
             return;
         }
 
-        ModConfig config = CraftableSpawnersPlugin.ConfigSyncWrapper;
+        ModConfig config = CraftableSpawnersPlugin.Settings;
 
         foreach (SpawnerDef def in SpawnerCatalog.All)
         {
@@ -449,7 +449,7 @@ internal static class SpawnerSetup
         if (!player || ObjectDB.instance == null)
             return;
 
-        ModConfig config = CraftableSpawnersPlugin.ConfigSyncWrapper;
+        ModConfig config = CraftableSpawnersPlugin.Settings;
         bool unlockedAny = false;
 
         foreach (SpawnerDef def in SpawnerCatalog.All)
@@ -489,7 +489,7 @@ internal static class SpawnerSetup
             if (item.m_shared.m_name != trophyDrop.m_itemData.m_shared.m_name)
                 continue;
 
-            if (!CraftableSpawnersPlugin.ConfigSyncWrapper.IsEnabled(def.Id) || !def.Prefab)
+            if (!CraftableSpawnersPlugin.Settings.IsEnabled(def.Id) || !def.Prefab)
                 continue;
 
             Piece piece = def.Prefab.GetComponent<Piece>();

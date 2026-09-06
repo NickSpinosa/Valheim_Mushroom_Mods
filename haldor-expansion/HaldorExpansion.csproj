@@ -20,6 +20,15 @@
     <Compile Include="src\**\*.cs" />
   </ItemGroup>
 
+  <!--
+    Shared server-authoritative sync. Private=false because MushroomSync ships as
+    its own plugin DLL in the release, so a copy alongside this one would mean two
+    on disk and BepInEx loading the wrong one after an upgrade.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MushroomSync\MushroomSync.csproj" Private="false" />
+  </ItemGroup>
+
   <Target Name="CheckValheimDir" BeforeTargets="BeforeBuild">
     <Error Condition="'$(ValheimDir)' == ''"
            Text="ValheimDir is not set. Copy Local.props.example to Local.props and set your install path." />

@@ -29,11 +29,25 @@ mod does not have it yet.
 |---|---|
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md` |
 | CraftableSpawners | `docs/design_decisions.md` |
+| MushroomSync | `docs/DESIGN.md` |
 | Separate Spawns | `docs/CONTEXT.md` |
 | haldor-expansion | `docs/DESIGN.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | none yet |
 | vegvisir-compass | none — its design lives in the README's "How it works" |
+
+## Server-authoritative sync
+
+Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil
+get their host-follows-client behaviour from **MushroomSync**, a shared plugin.
+Read [MushroomSync/README.md](MushroomSync/README.md) before adding a synced
+setting or a new push of server data, and
+[MushroomSync/docs/DESIGN.md](MushroomSync/docs/DESIGN.md) before changing how
+sync itself works.
+
+The trap it exists to prevent: this was four copies of one implementation that
+drifted, so a fix landed in one mod and not the others. Change it in
+MushroomSync, not in a mod.
 
 ## Building
 

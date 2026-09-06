@@ -42,7 +42,8 @@ mined out, that is the point.
 
 - **Bare BepInEx 5 + HarmonyX.** No Jötunn — all five items are vanilla prefabs already
   in `ObjectDB`, so Jötunn's custom-asset tooling would be an unused hard dependency.
-- **Harmony postfix on `Trader.GetAvailableItems`** plus ZNet hooks for config sync.
+- **Harmony postfix on `Trader.GetAvailableItems`.** The ZNet hooks for config sync
+  are no longer patched here — MushroomSync owns them for every mod that syncs.
   Confirmed present in the current assembly. No installed plugin patches the trader
   method; ValheimPlus references `StoreGui` only (UI-level), so conflict risk is low.
 - **No publicizer needed.** The design called for `BepInEx.AssemblyPublicizer.MSBuild`,
@@ -57,15 +58,25 @@ mined out, that is the point.
   surtling core = Bonemass. Stack size stays in C# — that is a design invariant,
   not a knob. `UnlockBoss` accepts `None` plus every vanilla boss so the gate can
   be moved without a rebuild.
-- **Server-authoritative config sync over peer ZRpc**, same pattern as Craftable
-  Spawners and Combat Adjustments (register on `ZNet.OnNewConnection`, exchange after
-  `RPC_PeerInfo`, do not wrap login sockets). ServerSync broke on a recent Valheim
-  update; this path does not depend on it. Clients apply host values at runtime and
-  never overwrite their local `.cfg`. `Server.LockConfiguration` (default on) is the
-  host-side switch; turning it off leaves clients on their own files.
+- **Server-authoritative config sync**, now provided by the shared
+  [MushroomSync](../../MushroomSync/README.md) plugin rather than owned here. This
+  mod used to carry its own copy — the same ~300 lines Craftable Spawners, Combat
+  Adjustments and Random Yggdrasil each also carried. It registers its settings and
+  supplies a gate; MushroomSync owns the ZNet hooks and the handshake. See
+  [MushroomSync/docs/DESIGN.md](../../MushroomSync/docs/DESIGN.md) for how the
+  transport works and why it does not wrap login sockets the way ServerSync did.
+
+  What stays true here: clients apply host values at runtime and never overwrite
+  their local `.cfg`. `Server.LockConfiguration` (default on) remains a **host-side
+  switch** — it decides whether this machine publishes its settings when it is the
+  server, and does not stop this machine following a host when it is a client.
   `GetAvailableItems` is still client-side, so sync buys *consistency*, not
-  *enforcement* — that is enough on a private server. Enabled, Cost, and UnlockBoss
-  are all registered into that payload.
+  *enforcement* — enough on a private server. Enabled, Cost, and UnlockBoss are all
+  registered into that payload.
+
+  `UnlockBoss` is an enum, and enums are the case the old copies got wrong: passed
+  straight to `TomlTypeConverter` they convert to `null` and the setting is silently
+  skipped. MushroomSync parses enums before falling back to the converter.
 - **Table authored as C# source**, not embedded JSON — a mistyped prefab ID fails at
   build rather than silently dropping an item from Haldor's stock. Config overlays
   Enabled / Cost / UnlockBoss on those rows.

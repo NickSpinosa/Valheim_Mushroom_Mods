@@ -5,6 +5,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using CraftableSpawners.Configuration;
 using HarmonyLib;
+using MushroomSync;
 using UnityEngine;
 
 namespace CraftableSpawners;
@@ -19,6 +20,7 @@ public enum SpawnerId
 }
 
 [BepInPlugin(PluginID, PluginName, Version)]
+[BepInDependency(MushroomSyncPlugin.PluginGuid)]
 public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
 {
     public const string PluginID = "Gonfreecss.CraftableSpawners";
@@ -26,8 +28,14 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
     public const string Version = "0.2.0";
 
     internal static ManualLogSource Log = new($" {PluginName}");
-    internal static ModConfig ConfigSyncWrapper;
+    internal static ModConfig Settings;
     internal static bool HammerRemoving;
+
+    /// <summary>
+    /// Server-authoritative settings. Created before <see cref="ModConfig"/> because
+    /// binding a setting registers it here.
+    /// </summary>
+    internal static ConfigSync Sync;
 
     private readonly Harmony harmony = new(PluginID);
 
@@ -36,15 +44,30 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
         BepInEx.Logging.Logger.Sources.Add(Log);
 
         ConfigFile configFile = ConfigPaths.CreateMergedConfig();
-        ConfigSyncWrapper = new ModConfig(configFile);
+
+        // Spawner prefabs bake their drop tables from config, so a change on either
+        // side has to rebuild them - hence OnApplied as well as the local hook.
+        Sync = ConfigSync.Create(PluginID, Version, Log)
+            .Protecting(configFile)
+            .OnApplied(SpawnerSetup.RefreshFromConfig);
+
+        Settings = new ModConfig(configFile);
+
+        // Server.LockConfiguration promised "connected clients use the server's
+        // spawner settings" but was never read - the old in-mod sync had no gate at
+        // all, so the knob did nothing. Wired to the send side, matching the
+        // identically-named setting in Haldor Expansion.
+        Sync.GatedBy(() => Settings == null || Settings.LockConfiguration)
+            .WatchForChanges(configFile)
+            .Start();
+
         harmony.PatchAll(Assembly.GetExecutingAssembly());
-        SpawnerConfigSync.Initialize(harmony);
         Dbgl($"Loaded {PluginName} {Version}");
     }
 
     internal static void Dbgl(string message, bool forceLog = false)
     {
-        if (forceLog || ConfigSyncWrapper is { EnableDebugMessages: true })
+        if (forceLog || Settings is { EnableDebugMessages: true })
             Log.LogInfo(message);
     }
 }

@@ -3,11 +3,13 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomSync;
 using UnityEngine;
 
 namespace CombatAdjustments.ShieldRework;
 
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+[BepInDependency(MushroomSyncPlugin.PluginGuid)]
 public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
@@ -50,6 +52,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> MistlandsFeastEitrBonus = null!;
     internal static ConfigEntry<float> AshlandsFeastEitrBonus = null!;
 
+    /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
+    internal static ConfigSync Sync = null!;
+
     private Harmony? _harmony;
 
     private void Awake()
@@ -57,6 +62,19 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         Instance = this;
         Log = Logger;
         ModConfig = ConfigPaths.CreateMergedConfig(PluginGuid);
+
+        // Created before any Bind so ShieldStats can register grant entries as it
+        // discovers shields.
+        // SyncConfigInMultiplayer means "do not sync at all", so it gates both
+        // directions: this machine publishes nothing when hosting, and ignores host
+        // values when connected. The old in-mod ConfigSync checked it on both sides
+        // too.
+        Sync = ConfigSync.Create(PluginGuid, PluginVersion, Logger)
+            .Protecting(ModConfig)
+            .GatedBy(() => SyncConfigInMultiplayer == null || SyncConfigInMultiplayer.Value)
+            .AcceptedWhen(() => SyncConfigInMultiplayer == null || SyncConfigInMultiplayer.Value)
+            .OnApplied(ApplyRuntimeFromConfig)
+            .Notifying(NotifyPlayer);
 
         EnableStaggerGrant = ModConfig.Bind("General", "EnableStaggerGrant", true,
             "Add flat stagger-bar capacity while a shield is equipped.");
@@ -99,31 +117,34 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-        ConfigSync.Register(EnableStaggerGrant);
-        ConfigSync.Register(EnableTowerArmorBonus);
-        ConfigSync.Register(EnableDurabilityBonus);
-        ConfigSync.Register(EnableTwoHandedCombat);
-        ConfigSync.Register(GreatswordPrimaryStaggerMultiplier);
-        ConfigSync.Register(HyperArmorDamageReduction);
-        ConfigSync.Register(AreaAdrenalinePerEnemy);
-        ConfigSync.Register(EnableWeaponBlockPerLevel);
-        ConfigSync.Register(TooltipColorHex);
-        ConfigSync.Register(EnableFeastStatBonuses);
-        ConfigSync.Register(FeastHealthBonus);
-        ConfigSync.Register(FeastStaminaBonus);
-        ConfigSync.Register(SailorsFeastHealthBonus);
-        ConfigSync.Register(SailorsFeastStaminaBonus);
-        ConfigSync.Register(MistlandsFeastEitrBonus);
-        ConfigSync.Register(AshlandsFeastEitrBonus);
-        HookConfigChangeBroadcast(EnableStaggerGrant);
-        HookConfigChangeBroadcast(EnableTowerArmorBonus);
-        HookConfigChangeBroadcast(EnableDurabilityBonus);
-        HookConfigChangeBroadcast(EnableTwoHandedCombat);
-        HookConfigChangeBroadcast(GreatswordPrimaryStaggerMultiplier);
-        HookConfigChangeBroadcast(HyperArmorDamageReduction);
-        HookConfigChangeBroadcast(AreaAdrenalinePerEnemy);
-        HookConfigChangeBroadcast(EnableWeaponBlockPerLevel);
-        HookConfigChangeBroadcast(TooltipColorHex);
+        Sync.Register(
+            EnableStaggerGrant,
+            EnableTowerArmorBonus,
+            EnableDurabilityBonus,
+            EnableTwoHandedCombat,
+            GreatswordPrimaryStaggerMultiplier,
+            HyperArmorDamageReduction,
+            AreaAdrenalinePerEnemy,
+            EnableWeaponBlockPerLevel,
+            TooltipColorHex,
+            EnableFeastStatBonuses,
+            FeastHealthBonus,
+            FeastStaminaBonus,
+            SailorsFeastHealthBonus,
+            SailorsFeastStaminaBonus,
+            MistlandsFeastEitrBonus,
+            AshlandsFeastEitrBonus);
+
+        // Deliberately not synced. GrantTableVersion is server-only reseed
+        // bookkeeping, and SyncConfigInMultiplayer is the opt-out itself - a client
+        // that switched syncing off must keep that answer.
+        Sync.Exclude(GrantTableVersion)
+            .Exclude(SyncConfigInMultiplayer);
+
+        // Feast bonuses are baked into ObjectDB items, so editing one locally has to
+        // rebuild them. Rebroadcasting to clients is handled by WatchForChanges, and
+        // an incoming host config is handled by OnApplied; this covers only the
+        // local edit.
         HookFeastConfigChange(EnableFeastStatBonuses);
         HookFeastConfigChange(FeastHealthBonus);
         HookFeastConfigChange(FeastStaminaBonus);
@@ -131,8 +152,10 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         HookFeastConfigChange(SailorsFeastStaminaBonus);
         HookFeastConfigChange(MistlandsFeastEitrBonus);
         HookFeastConfigChange(AshlandsFeastEitrBonus);
+
         ApplyOverlayToStaticEntries();
-        ConfigSync.Initialize(_harmony);
+
+        Sync.WatchForChanges(ModConfig).Start();
 
         ConsoleCommands.Register(); // safe if Terminal not ready yet; patch also registers on InitTerminal
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
@@ -152,15 +175,33 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
     internal static string ColorToHex(Color color) => $"#{ColorUtility.ToHtmlStringRGB(color)}";
 
-    private static void HookConfigChangeBroadcast<T>(ConfigEntry<T> entry) =>
-        entry.SettingChanged += (_, __) => ConfigSync.OnServerConfigChanged();
+    /// <summary>
+    /// Shield, weapon and feast stats are baked into ObjectDB items, so a config
+    /// change is not enough on its own - the values have to be pushed back into the
+    /// database. Runs when host values arrive and again when they are dropped.
+    /// </summary>
+    private static void ApplyRuntimeFromConfig()
+    {
+        if (ObjectDB.instance == null)
+            return;
+
+        ShieldStats.ApplyToObjectDB(ObjectDB.instance);
+        WeaponBlockStats.ApplyToObjectDB(ObjectDB.instance);
+        FeastStats.ApplyToObjectDB(ObjectDB.instance);
+    }
+
+    private static void NotifyPlayer(string message)
+    {
+        Player? player = Player.m_localPlayer;
+        if (player != null)
+            player.Message(MessageHud.MessageType.TopLeft, message, 0, null);
+    }
 
     private static void HookFeastConfigChange<T>(ConfigEntry<T> entry) =>
         entry.SettingChanged += (_, __) =>
         {
             if (ObjectDB.instance != null)
                 FeastStats.ApplyToObjectDB(ObjectDB.instance);
-            ConfigSync.OnServerConfigChanged();
         };
 
     private static void ApplyOverlayToStaticEntries() =>
