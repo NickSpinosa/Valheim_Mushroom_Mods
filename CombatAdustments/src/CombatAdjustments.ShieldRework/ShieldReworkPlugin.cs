@@ -14,7 +14,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.6.0";
+    public const string PluginVersion = "0.7.0";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -59,6 +59,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> SailingCalmWindCeiling = null!;
     internal static ConfigEntry<bool> EnableOceanStormChance = null!;
     internal static ConfigEntry<float> OceanThunderStormChance = null!;
+
+    internal static ConfigEntry<bool> EnableUncapHealthScaling = null!;
 
     /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
     internal static ConfigSync Sync = null!;
@@ -137,6 +139,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         OceanThunderStormChance = ModConfig.Bind("Sailing", "OceanThunderStormChance", 0.21f,
             "Target chance (0–1) of ThunderStorm on the Ocean biome. Vanilla is ~0.071 (7%). Default 0.21 = 21%.");
 
+        EnableUncapHealthScaling = ModConfig.Bind("Difficulty", "EnableUncapHealthScaling", true,
+            "Let effective enemy HP keep scaling with nearby players past vanilla's 5-player cap (+30% per extra player). Enemy damage dealt stays capped at 5.");
+
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
@@ -163,7 +168,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             SailingMaxForceFactor,
             SailingCalmWindCeiling,
             EnableOceanStormChance,
-            OceanThunderStormChance);
+            OceanThunderStormChance,
+            EnableUncapHealthScaling);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
         // bookkeeping, and SyncConfigInMultiplayer is the opt-out itself - a client

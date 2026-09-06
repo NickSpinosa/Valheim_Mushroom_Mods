@@ -56,6 +56,13 @@ Calm wind (**0–60%**) keeps the vanilla intensity ramp (**0.287 → 0.7**). Ab
 ThunderStorm chance is raised from ~**7%** to **21%**. See
 [`docs/sailing.md`](../../docs/sailing.md).
 
+### Difficulty scaling
+
+Effective enemy HP keeps scaling with nearby players past vanilla’s **5**-player
+cap (+30% per extra player). Enemy damage dealt stays capped at 5. Toggle with
+`Difficulty.EnableUncapHealthScaling` (default **true**). See
+[`docs/boss-hp-scaling.md`](../../docs/boss-hp-scaling.md).
+
 ## Install
 
 1. Requires [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) for Valheim.
@@ -101,6 +108,8 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   storms ramp to MaxForceFactor (see `docs/sailing.md`).
 - `Sailing.EnableOceanStormChance` / `OceanThunderStormChance` — Ocean
   ThunderStorm target chance (default **21%**, vanilla ~7%).
+- `Difficulty.EnableUncapHealthScaling` — keep effective enemy HP scaling past
+  5 nearby players (default **true**). Enemy damage stays capped.
 
 ### Multiplayer config sync
 
@@ -143,3 +152,6 @@ No `devcommands` required.
   the calm/storm curve when `Sailing.EnableWindCurve` is on. Ocean ThunderStorm
   weight is rewritten in `EnvMan.InitializeBiomeEnvSetup` to hit
   `OceanThunderStormChance`.
+- Difficulty: Harmony postfix on `Game.GetDifficultyDamageScaleEnemy` recounts
+  nearby players without the 5-player clamp when
+  `Difficulty.EnableUncapHealthScaling` is on. Damage scaling is unchanged.

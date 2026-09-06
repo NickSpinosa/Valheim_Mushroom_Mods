@@ -1,0 +1,5 @@
+﻿==== GetPlayerDifficulty ====
+==== GetDifficultyDamageScalePlayer ====
+==== GetDifficultyDamageScaleEnemy ====
+==== Game instance ctor field inits (filtered) ====
+==== Character methods referencing GetDifficulty* ====
