@@ -3,14 +3,11 @@
 Status: design locked, **v0.1.0 implemented** (`src/CombatAdjustments.ShieldRework`).
 Decided in the blocking/stagger design sessions of Aug 6, 2026.
 Interactive balance sandbox: `charred-warrior-stagger.canvas.tsx` (Cursor canvas).
-Mechanics verified against decompiled game code in `decompiled/` (pulled from the
-current `assembly_valheim.dll`, Aug 2026).
+Mechanics verified against the local `assembly_valheim.dll` (Aug 2026); decompiled
+snippets stay out of the repo (see `.gitignore`).
 
 Tooltip stagger line uses the same `<color=orange>` as other item stats (block armor,
 etc.). The HUD stagger bar is also orange.
-Interactive balance sandbox: `charred-warrior-stagger.canvas.tsx` (Cursor canvas).
-Mechanics verified against decompiled game code in `decompiled/` (pulled from the
-current `assembly_valheim.dll`, Aug 2026).
 
 ## 1. Design goals
 
@@ -171,7 +168,7 @@ Round / buckler grants still use block-armor ratios from their anchors (round â‰
   adds the difference after the slam resolves.
 - Dual-wield weapons, pickaxes, and magic weapons are out of scope.
 
-## 3. Mechanics reference (from decompiled current build)
+## 3. Mechanics reference (from current game build)
 
 ### 3.1 Damage/stagger pipeline order (`Character.RPC_Damage`)
 

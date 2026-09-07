@@ -21,8 +21,9 @@ BepInEx*.dll
 0Harmony*.dll
 
 # Decompiled game source. Keep it locally for looking up method names if you
-# like - it just must never be committed.
-Decompiled/
+# like - it just must never be committed. Match any casing (Windows).
+[Dd]ecompiled/
+**/_tmp_decompile/
 
 # ---- Local machine config ----
 Directory.Build.user.props
