@@ -82,8 +82,8 @@ namespace HaldorExpansion
     }
 
     /// <summary>
-    /// Hammer only lists known pieces. Teach every player the Super Mist Torch once
-    /// the prefab exists so a Haldor purchase is placeable immediately.
+    /// A build menu only lists known pieces. Teach every player the Super Mist Torch
+    /// once the prefab exists so a Haldor purchase is placeable immediately.
     /// </summary>
     [HarmonyPatch(typeof(Player), "OnSpawned")]
     internal static class PlayerOnSpawnedPatch
@@ -95,6 +95,26 @@ namespace HaldorExpansion
             catch (System.Exception e)
             {
                 Plugin.Log.LogError("Failed to unlock SuperMistTorch for player: " + e);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The torch is the tool that places it and the material it costs, so placing the
+    /// last one deletes the item currently in the player's hand. Nothing in the game
+    /// unequips an item that leaves the inventory - that case does not arise in vanilla
+    /// - so it is handled here. See SuperMistTorch.UnequipIfDepleted.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "PlacePiece")]
+    internal static class PlayerPlacePiecePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Player __instance)
+        {
+            try { SuperMistTorch.UnequipIfDepleted(__instance); }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogError("SuperMistTorch post-placement check failed: " + e);
             }
         }
     }

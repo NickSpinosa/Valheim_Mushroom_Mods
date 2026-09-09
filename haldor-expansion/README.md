@@ -78,8 +78,10 @@ item appears. Allowed values: `None`, `Eikthyr`, `Elder`, `Bonemass`, `Moder`,
 ### Super Mist Torch
 
 Custom placeable cloned from the vanilla Wisp Torch. Twice the size, clears mist
-in a 100 m radius. Buy it from Haldor (after the Queen), then place it with the
-Hammer — the hammer recipe consumes the bought item. Deconstructing refunds it.
+in a 100 m radius. Buy it from Haldor (after the Queen), then **equip it from your
+inventory** — that opens its build menu directly, no hammer needed — and place it.
+Placing consumes the torch you are holding. Deconstruct it with the hammer to get
+the item back.
 
 When `LockConfiguration` is on (the default) and this plugin is also on the server,
 joining clients use the server's Enabled / Cost / UnlockBoss values. Their local

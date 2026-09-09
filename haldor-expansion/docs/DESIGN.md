@@ -56,13 +56,21 @@ no Jötunn.
 | Default cost | 100 coins |
 | Default gate | Queen (`defeated_queen`) |
 
-| Item weight / max stack | 10 / 10 (judgment calls, not requirements) |
+| Item weight / max stack | 10 / 1 (stack is 1 because the item is equippable) |
 
 **How placement works.** The same prefab is the inventory item Haldor sells *and* the
-hammer piece. Its `Piece.m_resources` costs one of itself, so buying from Haldor is
-what stocks the material the hammer consumes. Hammer-remove refunds the item
-(`m_recover = true`). The piece is added to the Hammer Misc table and taught to every
-player on spawn so a purchase is immediately placeable.
+piece. Its `Piece.m_resources` costs one of itself, so buying from Haldor is what
+stocks the material placement consumes. Hammer-remove refunds the item
+(`m_recover = true`).
+
+**It is placed from the inventory, not with the hammer.** The item is an
+`ItemType.Tool` carrying its own one-entry `PieceTable` on `m_shared.m_buildPieces`;
+equipping it is what opens the build menu, because `Humanoid.SetupEquipment` reads that
+field off the right-hand item. The piece is taught to every player on spawn so a
+purchase is immediately placeable. It used to be injected into the Hammer's table
+instead, which made a bought item unplaceable from the inventory and listed it beside
+free-to-build structures — see [placeable-item.md](placeable-item.md) and issue #39,
+including why placing the last one has to unequip it.
 
 That shape is vanilla, not a trick: all 120 food and mead prefabs are built the same way,
 and `Player.PlacePiece` calls `ItemDrop.MakePiece()` on what it placed. **The clone source
@@ -167,7 +175,8 @@ plugin is not server-only for that row.
 3. Vanilla Haldor's actual price list, to re-anchor the table above.
 4. Whether `TradeItem.m_stack` clamps to an item's max stack size or overflows into
    multiple stacks. If it clamps, a large value silently delivers less than was paid for.
-5. Super Mist Torch: buy one after Queen, place with the hammer, confirm demist reach
+5. Super Mist Torch: buy one after Queen, equip it from the inventory and place it
+   (no hammer), confirm demist reach
    feels like ~100 m and the model is visibly larger than a vanilla Wisp Torch.
    Deconstruct with the hammer and confirm the item is refunded.
 

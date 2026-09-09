@@ -8,14 +8,19 @@ namespace HaldorExpansion
     /// demist radius. Cloned from <c>piece_groundtorch_mist</c> — no AssetBundle.
     ///
     /// Placement: the prefab is both the inventory item (ObjectDB / trader) and the
-    /// hammer piece. Its recipe costs one of itself, so buying from Haldor is what
-    /// supplies the material the hammer consumes when you place it. That is not a trick -
-    /// it is how every vanilla food and mead is built, and the game drives the handover
-    /// itself: Player.PlacePiece calls ItemDrop.MakePiece() on what it just placed.
+    /// piece. Its recipe costs one of itself, so buying from Haldor is what supplies the
+    /// material consumed when you place it. That is not a trick - it is how every vanilla
+    /// food and mead is built, and the game drives the handover itself: Player.PlacePiece
+    /// calls ItemDrop.MakePiece() on what it just placed.
+    ///
+    /// The torch is placed from the inventory, not with the hammer: it is a Tool carrying
+    /// its own one-entry <see cref="PieceTable"/> on m_buildPieces, which is the only
+    /// mechanism the game has for entering build mode - Humanoid.SetupEquipment reads it
+    /// off the right-hand item and calls SetPlaceMode. The Hammer, Hoe and Cultivator are
+    /// the same shape. See <c>docs/placeable-item.md</c>.
     ///
     /// The clone source supplies only the piece half. <c>piece_groundtorch_mist</c> is a
-    /// pure build piece and has no ItemDrop, so the item half is added here - see
-    /// <c>docs/placeable-item.md</c>.
+    /// pure build piece and has no ItemDrop, so the item half is added here.
     /// </summary>
     internal static class SuperMistTorch
     {
@@ -37,9 +42,12 @@ namespace HaldorExpansion
         /// </summary>
         private const string ItemDataTemplate = "Wood";
 
-        /// <summary>How many fit in an inventory slot. A judgment call, not a design
-        /// requirement: the trade row sells one at a time either way.</summary>
-        private const int MaxStackSize = 10;
+        /// <summary>
+        /// One per slot. Equippable items are not stacked anywhere in vanilla, and this
+        /// one is consumed out of the inventory while it is equipped, so a stack would
+        /// be testing two unusual things at once. The trade row sells one at a time.
+        /// </summary>
+        private const int MaxStackSize = 1;
 
         private const float ItemWeight = 10f;
 
@@ -54,6 +62,7 @@ namespace HaldorExpansion
 
         private static GameObject _prefab;
         private static GameObject _prefabContainer;
+        private static PieceTable _pieceTable;
 
         internal static GameObject Prefab => _prefab;
 
@@ -61,13 +70,13 @@ namespace HaldorExpansion
             _prefab != null ? _prefab.GetComponent<ItemDrop>() : null;
 
         /// <summary>
-        /// Re-applies hammer membership from the live Enabled flag. Call after a
-        /// config sync or any time the shop is queried so an in-session toggle
-        /// does not leave a stale hammer entry behind.
+        /// Re-applies the live Enabled flag to the torch's own piece table. Call after a
+        /// config sync or any time the shop is queried, so turning the torch off
+        /// mid-session also stops anyone still holding one from placing it.
         /// </summary>
         internal static void RefreshFromConfig()
         {
-            EnsureInHammer();
+            ApplyEnabledToPieceTable();
         }
 
         /// <summary>
@@ -92,7 +101,7 @@ namespace HaldorExpansion
                 Plugin.Log.LogInfo("Registered " + PrefabName + " with ObjectDB.");
             }
 
-            EnsureInHammer();
+            ApplyEnabledToPieceTable();
         }
 
         /// <summary>
@@ -121,12 +130,11 @@ namespace HaldorExpansion
             }
 
             EnsureRegistered(ObjectDB.instance);
-            EnsureInHammer();
         }
 
         /// <summary>
-        /// Makes the hammer show the piece. Without this, a bought torch sits in the
-        /// inventory with no way to place it.
+        /// Teaches the piece so the torch's own build menu will list it. Without this a
+        /// bought torch equips into an empty piece table.
         /// </summary>
         internal static void EnsureKnown(Player player)
         {
@@ -155,52 +163,6 @@ namespace HaldorExpansion
                 }
                 return null;
             }
-        }
-
-        private static void EnsureInHammer()
-        {
-            if (_prefab == null) return;
-
-            TradeEntry entry = TradeEntry;
-            bool enabled = entry == null
-                || Plugin.Settings == null
-                || Plugin.Settings.IsEnabled(entry);
-
-            foreach (PieceTable table in GetHammerTables())
-            {
-                bool inTable = table.m_pieces.Contains(_prefab);
-                if (enabled && !inTable)
-                {
-                    table.m_pieces.Add(_prefab);
-                    Plugin.Log.LogInfo("Added " + PrefabName + " to the Hammer piece table.");
-                }
-                else if (!enabled && inTable)
-                {
-                    table.m_pieces.Remove(_prefab);
-                }
-            }
-        }
-
-        private static List<PieceTable> GetHammerTables()
-        {
-            var tables = new List<PieceTable>();
-            var seen = new HashSet<int>();
-
-            void TryAdd(GameObject hammer)
-            {
-                PieceTable table = hammer != null
-                    ? hammer.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces
-                    : null;
-                if (table == null) return;
-                if (seen.Add(table.GetInstanceID())) tables.Add(table);
-            }
-
-            if (ZNetScene.instance != null)
-                TryAdd(ZNetScene.instance.GetPrefab("Hammer"));
-            if (ObjectDB.instance != null)
-                TryAdd(ObjectDB.instance.GetItemPrefab("Hammer"));
-
-            return tables;
         }
 
         private static GameObject BuildPrefab()
@@ -320,7 +282,20 @@ namespace HaldorExpansion
             drop.m_itemData = data;
 
             ItemDrop.ItemData.SharedData shared = data.m_shared;
-            shared.m_itemType = ItemDrop.ItemData.ItemType.Material;
+
+            // Tool, not Material: Humanoid.EquipItem only routes Tool (and weapons) to
+            // the right hand, and SetupEquipment reads m_buildPieces off the right-hand
+            // item to decide whether to enter build mode. A Material can never be held,
+            // so a Material torch can never be placed from the inventory. See #39.
+            shared.m_itemType = ItemDrop.ItemData.ItemType.Tool;
+            shared.m_buildPieces = EnsurePieceTable(piece);
+
+            // Nothing about this item wears out or swings, and EquipItem refuses an item
+            // whose durability has hit zero - which a Wood-derived template would never
+            // set up correctly anyway.
+            shared.m_useDurability = false;
+            shared.m_maxQuality = 1;
+
             shared.m_maxStackSize = MaxStackSize;
             shared.m_weight = ItemWeight;
 
@@ -331,6 +306,83 @@ namespace HaldorExpansion
             if (piece.m_icon != null) shared.m_icons = new[] { piece.m_icon };
 
             return drop;
+        }
+
+        /// <summary>
+        /// The torch's own build menu: one piece, its own table, nobody else's list.
+        ///
+        /// A PieceTable is a MonoBehaviour, so it needs a GameObject to live on; it goes
+        /// under the inactive prefab container so nothing ticks. m_hideAdvancedMenu is
+        /// what a one-entry table wants - tags, favourites and recents over a single
+        /// piece are noise. Removal stays with the hammer: Player.RemovePiece works on
+        /// any Piece with m_canBeRemoved and never consults the table you are holding.
+        /// </summary>
+        private static PieceTable EnsurePieceTable(Piece piece)
+        {
+            if (_pieceTable != null)
+            {
+                return _pieceTable;
+            }
+
+            var host = new GameObject(PrefabName + "PieceTable");
+            host.transform.SetParent(_prefabContainer.transform);
+
+            _pieceTable = host.AddComponent<PieceTable>();
+            _pieceTable.m_pieces = new List<GameObject> { piece.gameObject };
+            _pieceTable.m_categories = new List<Piece.PieceCategory> { piece.m_category };
+            _pieceTable.m_canRemovePieces = false;
+            _pieceTable.m_canRemoveFeasts = false;
+            _pieceTable.m_hideAdvancedMenu = true;
+            _pieceTable.m_skill = Skills.SkillType.None;
+
+            return _pieceTable;
+        }
+
+        /// <summary>
+        /// Enabled = false has to take the piece out of the torch's build menu, not just
+        /// out of Haldor's stock - otherwise anyone already holding one keeps placing
+        /// them after the setting is turned off.
+        /// </summary>
+        private static void ApplyEnabledToPieceTable()
+        {
+            if (_prefab == null || _pieceTable == null) return;
+
+            TradeEntry entry = TradeEntry;
+            bool enabled = entry == null
+                || Plugin.Settings == null
+                || Plugin.Settings.IsEnabled(entry);
+
+            bool inTable = _pieceTable.m_pieces.Contains(_prefab);
+            if (enabled && !inTable)
+            {
+                _pieceTable.m_pieces.Add(_prefab);
+            }
+            else if (!enabled && inTable)
+            {
+                _pieceTable.m_pieces.Remove(_prefab);
+            }
+        }
+
+        /// <summary>
+        /// Drops the torch out of the hand once the last one has been placed.
+        ///
+        /// Placing consumes the item that is doing the placing, which is a shape vanilla
+        /// never has: no code path unequips an item that leaves the inventory, so the
+        /// player would otherwise keep an unplaceable ghost and a phantom held item until
+        /// they switched tools. Cheap because it returns immediately unless the right
+        /// hand is a torch.
+        /// </summary>
+        internal static void UnequipIfDepleted(Player player)
+        {
+            if (player == null) return;
+
+            ItemDrop.ItemData right = player.GetRightItem();
+            if (right?.m_shared == null || right.m_shared.m_name != DisplayName) return;
+
+            Inventory inventory = player.GetInventory();
+            if (inventory == null || inventory.ContainsItem(right)) return;
+
+            player.UnequipItem(right, false);
         }
 
         private static void ConfigureDemisterRadius(GameObject clone)
