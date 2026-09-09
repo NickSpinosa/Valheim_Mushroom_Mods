@@ -50,7 +50,11 @@ etc.). The HUD stagger bar is also orange.
   - **+1 / ★** — wood through iron (wood/banded rounds, bone/iron towers, …)
   - **+2 / ★** — silver / serpent through carapace (silver/black metal/carapace
     rounds, serpent/black metal towers, …)
-  - **+3 / ★** — flametal (tower + round)
+  - **+3 / ★** — flametal (tower + round), and the Deep North Gold line
+    (`ShieldTowerGold` / `ShieldRoundGold`). Deliberately not a new +4 band: the
+    bands set how evenly a grant spreads across the ★ steps, not which tier the
+    shield belongs to, and a fourth band would be a balance change with no
+    numbers behind it.
   - **Bucklers: always +1 / ★** (bronze, iron, carapace — e.g. carapace +20 over
     4★ → **+17 / +18 / +19 / +20**)
   - Example (4★): iron tower +25 → **+22 / +23 / +24 / +25**; flametal round +45 →
@@ -83,6 +87,7 @@ bone/draugr 48, iron/draugr elite 58, serpent/fenring 85, black metal/seeker cla
 
 | Shield | Max block | Native medium hit | Leftover | Seed grant |
 | --- | --- | --- | --- | --- |
+| Gold tower shield (`ShieldTowerGold`, Deep North) | ? | ? | ? | **+85** *(provisional)* |
 | Flametal tower shield | 152 | 150 | ~37 | **+70** (anchor) |
 | Black metal tower shield | 116 | 120 | ~31 | **+55** |
 | Serpent scale shield | 72 | 85 | ~25 | **+50** |
@@ -93,6 +98,23 @@ bone/draugr 48, iron/draugr elite 58, serpent/fenring 85, black metal/seeker cla
 (For comparison, pure block-armor ratio at 70/152 would give BM +53, serpent +33,
 iron +29, bone +20, wood +10 — leftover seeding raises serpent/BM for the Mountain–
 Mistlands damage spike and lowers wood.)
+
+**The Deep North row is not seeded, it is extrapolated.** The formula needs the
+shield's real max block armor and the biome's native medium hit, and neither can
+be read outside the running game. +85 continues the existing seeds (5, 15, 25, 50,
+55, 70) by their own last step. What matters is that a row exists at all: with no
+entry, `SeedMaxGrant` falls through to the block-armor ratio for towers, which is
+the exact under-seeding the leftover method was introduced to correct — so the
+generic fallback is *predictably* wrong for a tower, not merely unverified. Re-seed
+it properly from the FOODS/SHIELDS sections of the diagnostics dump
+(`[Diagnostics] DumpObjectDb`, or `cadump`), which print every shield's block
+armor per quality. `CurrentGrantTableVersion` is bumped to 3 so a config written
+before this row existed gets rewritten.
+
+Rounds and bucklers get no Deep North row on purpose: their seeds *are* the
+block-armor ratio (round ≈ 45/126 × block, buckler ≈ 20/90 × block), so a new
+shield of either kind is already seeded by the designed formula the moment
+ObjectDB hands it over. Only the quality **step** needed adding.
 
 Round / buckler grants still use block-armor ratios from their anchors (round ≈
 45/126 × block, buckler ≈ 20/90 × block), then **rounded to the nearest 5**.

@@ -90,6 +90,7 @@ internal static class FeastStats
     {
         FeastKind.Mistlands => ShieldReworkPlugin.MistlandsFeastEitrBonus.Value,
         FeastKind.Ashlands => ShieldReworkPlugin.AshlandsFeastEitrBonus.Value,
+        FeastKind.DeepNorth => ShieldReworkPlugin.DeepNorthFeastEitrBonus.Value,
         _ => 0f,
     };
 
@@ -103,6 +104,7 @@ internal static class FeastStats
         FeastKind.Plains => "FeastPlains",
         FeastKind.Mistlands => "FeastMistlands",
         FeastKind.Ashlands => "FeastAshlands",
+        FeastKind.DeepNorth => "FeastDeepNorth",
         _ => string.Empty,
     };
 
@@ -116,7 +118,14 @@ internal static class FeastStats
         "FeastPlains",
         "FeastMistlands",
         "FeastAshlands",
+        // Deep North (1.0). Spelling not confirmed in game yet — see docs/valheim-1.0.md.
+        // Being in this list is what turns a wrong guess into a startup warning instead
+        // of a feast that silently gets no bonus.
+        "FeastDeepNorth",
     };
+
+    /// <summary>Prefabs this table looks for, for the diagnostics coverage report.</summary>
+    internal static IEnumerable<string> TrackedPrefabs => PrefabKinds.Keys;
 
     private static readonly Dictionary<string, FeastKind> PrefabKinds =
         new(StringComparer.OrdinalIgnoreCase)
@@ -133,6 +142,7 @@ internal static class FeastStats
             ["FeastPlains"] = FeastKind.Plains,
             ["FeastMistlands"] = FeastKind.Mistlands,
             ["FeastAshlands"] = FeastKind.Ashlands,
+            ["FeastDeepNorth"] = FeastKind.DeepNorth,
         };
 }
 
@@ -146,4 +156,5 @@ internal enum FeastKind
     Plains,
     Mistlands,
     Ashlands,
+    DeepNorth,
 }

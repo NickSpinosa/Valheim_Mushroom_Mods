@@ -70,7 +70,30 @@ internal static class ShieldStats
             // Seed for Mistlands use (still the best tower until Flametal).
             ["ShieldBlackmetalTower"] = 55f,
             ["ShieldFlametalTower"] = ShieldReworkPlugin.FlametalTowerGrant,
+            // Deep North (1.0), Gold line. PROVISIONAL: the leftover seed needs the
+            // shield's real block armor and the biome's native medium hit, and neither
+            // is known offline. +85 continues the seed progression (5, 15, 25, 50, 55,
+            // 70) by its own last step rather than inventing a new curve. Without a row
+            // here a Gold tower falls back to the block-armor ratio, which is exactly
+            // the under-seeding the leftover method exists to correct - see
+            // docs/shield-rework-requirements.md and docs/valheim-1.0.md.
+            ["ShieldTowerGold"] = 85f,
         };
+
+    /// <summary>Prefabs with an explicit tower seed, for the diagnostics coverage report.</summary>
+    internal static IEnumerable<string> TrackedTowerSeedPrefabs => TowerLeftoverSeeds.Keys;
+
+    /// <summary>Prefabs with a non-default quality step, for the diagnostics coverage report.</summary>
+    internal static IEnumerable<string> TrackedGrantStepPrefabs
+    {
+        get
+        {
+            foreach (string name in GrantStep3)
+                yield return name;
+            foreach (string name in GrantStep2)
+                yield return name;
+        }
+    }
 
     internal static float SeedMaxGrant(ShieldKind kind, float maxBlockArmor, string? prefab = null)
     {
@@ -199,6 +222,14 @@ internal static class ShieldStats
             // Flametal tower + round
             "ShieldFlametal",
             "ShieldFlametalTower",
+            // Deep North (1.0), Gold line: tower, round and buckler. Kept at +3/★ rather
+            // than opening a fourth band — the bands describe how evenly a grant is spread
+            // over the ★ steps, not the tier, and a fourth band is a balance change this
+            // ticket has no numbers for. Bucklers are forced to +1 by kind regardless, so
+            // listing ShieldBucklerGold here is documentation, not behaviour.
+            "ShieldRoundGold",
+            "ShieldTowerGold",
+            "ShieldBucklerGold",
         };
 
     private static readonly HashSet<string> GrantStep2 =

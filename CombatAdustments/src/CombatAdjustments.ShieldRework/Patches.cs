@@ -11,6 +11,8 @@ internal static class ObjectDB_Awake_Patch
         ShieldStats.ApplyToObjectDB(__instance);
         WeaponBlockStats.ApplyToObjectDB(__instance);
         FeastStats.ApplyToObjectDB(__instance);
+        // Last, so the dump shows the values this mod actually ended up with.
+        Diagnostics.DumpOnceIfEnabled(__instance);
     }
 }
 
@@ -22,6 +24,7 @@ internal static class ObjectDB_CopyOtherDB_Patch
         ShieldStats.ApplyToObjectDB(__instance);
         WeaponBlockStats.ApplyToObjectDB(__instance);
         FeastStats.ApplyToObjectDB(__instance);
+        Diagnostics.DumpOnceIfEnabled(__instance);
     }
 }
 

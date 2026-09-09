@@ -56,7 +56,43 @@ internal static class WeaponBlockStats
             ["THSwordSlayerNature"] = 6f,
             ["BattleaxeSkullSplittur"] = 6f,
             ["SledgeDemolisher"] = 6f,
+
+            // Deep North (+7) — one step past Ashlands. The native medium hit for the
+            // biome is not known yet (nobody has run 1.0 with this mod), so this is the
+            // progression continued rather than a measured value; docs/valheim-1.0.md
+            // says which rows the in-game dump still has to confirm.
+            //
+            // The Gold line is the Deep North tier the way Flametal was Ashlands':
+            // <Weapon>Gold, plus _FrostFire and _BloodLightning elemental variants (the
+            // 1.0 equivalent of THSwordSlayerBlood / Lightning / Nature). <Weapon>GoldUncooked
+            // is the crafting intermediate and deliberately absent — it is a Material,
+            // not a weapon.
+            ["THSwordGold"] = 7f,
+            ["THSwordGold_FrostFire"] = 7f,
+            ["THSwordGold_BloodLightning"] = 7f,
+            ["BattleaxeGold"] = 7f,
+            ["BattleaxeGold_FrostFire"] = 7f,
+            ["BattleaxeGold_BloodLightning"] = 7f,
+            ["SledgeGold"] = 7f,
+            ["SledgeGold_FrostFire"] = 7f,
+            ["SledgeGold_BloodLightning"] = 7f,
+            ["AtgeirGold"] = 7f,
+            ["AtgeirGold_FrostFire"] = 7f,
+            ["AtgeirGold_BloodLightning"] = 7f,
+            // Dual-wield fists, following FistFenrirClaw.
+            ["FistGold"] = 7f,
+            ["FistGold_FrostFire"] = 7f,
+            ["FistGold_BloodLightning"] = 7f,
+            // Named Deep North axe, the tier's AxeBerzerkr / THSwordKrom. Whether it is
+            // two-handed or dual-wield is unconfirmed; if it turns out to be a plain
+            // one-hander this row is inert rather than wrong, because one-handers pair
+            // with a shield and never reach this code path in a way that matters.
+            ["AxeJotunBane"] = 7f,
         };
+
+    /// <summary>Prefabs this table looks for, for the diagnostics coverage report.</summary>
+    internal static System.Collections.Generic.IEnumerable<string> TrackedPrefabs =>
+        BlockPerLevelByPrefab.Keys;
 
     private static readonly Dictionary<string, float> OriginalPerLevel =
         new(System.StringComparer.OrdinalIgnoreCase);

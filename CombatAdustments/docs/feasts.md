@@ -15,10 +15,20 @@ Placed / eaten feasts also get extra food stats (defaults):
 
 | Feast | Health | Stamina | Eitr |
 | --- | --- | --- | --- |
-| All except the three rows below | vanilla +10 | vanilla +10 | vanilla |
+| All except the four rows below | vanilla +10 | vanilla +10 | vanilla |
 | Sailor's Bounty | vanilla +15 | vanilla +15 | vanilla |
 | Mushrooms Galore à la Mistlands | vanilla +10 | vanilla +10 | vanilla 33 +7 = **40** |
 | Ashlands Gourmet Bowl | vanilla +10 | vanilla +10 | vanilla 38 +12 = **50** |
+| Deep North (`FeastDeepNorth`) | vanilla +10 | vanilla +10 | vanilla +17 = **60**, *provisional* |
+
+The Deep North eitr number is the only one in the table that was not read off the
+item. The eitr ceiling steps 40 → 50 over the two previous tiers, so 60 continues
+it; +17 is what reaches 60 *if* the vanilla value is 43, which is itself an
+extrapolation of 33 → 38. The dump (`[Diagnostics] DumpObjectDb`, or `cadump` in
+the console) prints the real vanilla eitr in its FOODS section — read it and set
+`Feasts.DeepNorthEitrBonus` to `60 − vanilla`. Run it with
+`Feasts.EnableStatBonuses = false` first, or the number you read already has the
+bonus in it.
 
 ## Unlock table
 
@@ -39,10 +49,20 @@ so Woodland Herb Blend is ungated.
 | Plains Pie Picnic | Yagluth (`SpicePlains`) | Moder |
 | Mushrooms Galore à la Mistlands | Queen (`SpiceMistlands`) | Yagluth |
 | Ashlands Gourmet Bowl | Fader (`SpiceAshlands`) | Queen |
+| Deep North feast | Deep North boss (`SpiceDeepNorth`) | Fader |
 
 Yagluth's world key is `defeated_goblinking`, not `defeated_goblin`. Queen / Fader
 keys (`defeated_queen`, `defeated_fader`) are data-driven and do not appear as
 string literals in `assembly_valheim.dll`.
+
+The Deep North row is the reason the new boss's key does **not** need to be
+correct for feasts to work: every feast moves to the *previous* boss, so the Deep
+North feast gates on Fader and the new key is only the one being moved off.
+`FeastUnlocks.FrozenKing` (`defeated_frozenking`) is carried anyway, unused by the
+gate, purely so the dump can print it beside the world's real key list — it is
+the same "data-driven, not in the binary" problem as Queen and Fader, one tier
+later. `SpiceDeepNorth` and `FeastDeepNorth` are unverified spellings; see
+`valheim-1.0.md`.
 
 Sailor's Bounty is omitted from both the spice remap and the recipe gate.
 

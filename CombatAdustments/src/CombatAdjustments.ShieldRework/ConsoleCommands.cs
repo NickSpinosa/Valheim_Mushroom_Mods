@@ -46,13 +46,37 @@ internal static class ConsoleCommands
                 ToggleStaggerHud,
                 isCheat: false);
 
-            ShieldReworkPlugin.Log.LogInfo("Console commands registered: shieldstagger, sstagger, staggerhud, shud");
+            _ = new Terminal.ConsoleCommand(
+                "cadump",
+                "write the ObjectDB / global-key diagnostics dump next to the mod config",
+                DumpObjectDb,
+                isCheat: false);
+
+            ShieldReworkPlugin.Log.LogInfo("Console commands registered: shieldstagger, sstagger, staggerhud, shud, cadump");
         }
         catch (Exception ex)
         {
             ShieldReworkPlugin.Log.LogError(
                 $"Failed to register Shield Rework console commands; continuing without them: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Forces the diagnostics dump without the config flag or a restart. The flag exists
+    /// for dedicated servers, which have no console to type into.
+    /// </summary>
+    private static void DumpObjectDb(Terminal.ConsoleEventArgs args)
+    {
+        if (ObjectDB.instance == null)
+        {
+            args.Context?.AddString("<color=red>ObjectDB not loaded yet — join a world first.</color>");
+            return;
+        }
+
+        string? path = Diagnostics.Write(ObjectDB.instance, "cadump console command");
+        args.Context?.AddString(path == null
+            ? "<color=red>Dump failed; see the BepInEx log.</color>"
+            : "Dump written to " + path);
     }
 
     private static void ToggleStaggerHud(Terminal.ConsoleEventArgs args)

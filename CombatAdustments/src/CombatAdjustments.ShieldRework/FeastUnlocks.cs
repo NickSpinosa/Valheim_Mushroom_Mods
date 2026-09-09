@@ -20,6 +20,21 @@ internal static class FeastUnlocks
     internal const string Moder = "defeated_dragon";
     internal const string Yagluth = "defeated_goblinking";
     internal const string Queen = "defeated_queen";
+    internal const string Fader = "defeated_fader";
+
+    /// <summary>
+    /// PROVISIONAL. The Deep North boss is FrozenKing (the localisation table has
+    /// enemy_boss_frozenking_deathmessage and ach_boss8frozenking), and every boss key
+    /// through Fader matches its localisation id, so defeated_frozenking is the obvious
+    /// spelling — but like Queen and Fader it is set from prefab data, not a string
+    /// literal in assembly_valheim.dll, so it cannot be read out of the binary.
+    ///
+    /// Nothing gates on it: the mod shifts each feast to the PREVIOUS boss, so the Deep
+    /// North feast gates on Fader and the FrozenKing key is only ever the one we moved
+    /// off. It is here so the diagnostics dump can print it next to the world's real key
+    /// list and settle the spelling. See docs/valheim-1.0.md.
+    /// </summary>
+    internal const string FrozenKing = "defeated_frozenking";
 
     /// <summary>
     /// Bog Witch spice prefab → required global key after the shift.
@@ -35,6 +50,9 @@ internal static class FeastUnlocks
             ["SpicePlains"] = Moder,
             ["SpiceMistlands"] = Yagluth,
             ["SpiceAshlands"] = Queen,
+            // Deep North (1.0). Vanilla gates this on the Deep North boss; one biome
+            // earlier is Fader.
+            ["SpiceDeepNorth"] = Fader,
         };
 
     /// <summary>
@@ -53,7 +71,14 @@ internal static class FeastUnlocks
             ["FeastPlains"] = Moder,
             ["FeastMistlands"] = Yagluth,
             ["FeastAshlands"] = Queen,
+            ["FeastDeepNorth"] = Fader,
         };
+
+    /// <summary>Prefabs the spice remap looks for, for the diagnostics coverage report.</summary>
+    internal static IEnumerable<string> TrackedSpicePrefabs => SpiceKeys.Keys;
+
+    /// <summary>Prefabs the recipe gate looks for, for the diagnostics coverage report.</summary>
+    internal static IEnumerable<string> TrackedRecipePrefabs => RecipeKeys.Keys;
 
     private static readonly HashSet<int> RemappedTraders = new();
 
