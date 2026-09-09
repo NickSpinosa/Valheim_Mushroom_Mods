@@ -31,18 +31,24 @@ namespace SeparateSpawns.Patches
                         output.AppendLine($"  {pair.Key}: difficulty={difficulty}, players={pair.Value?.Players?.Count ?? 0}");
                     }
 
-                    if (Plugin.LayoutCache.Current == null)
+                    // Both UIDs, because a layout held for the wrong world is the one
+                    // failure this command cannot otherwise show - see issue #38.
+                    var layout = Plugin.LayoutCache.Current;
+                    output.AppendLine($"World uid: {(ZNet.instance != null && ZNet.instance.GetWorldName() != null ? ZNet.instance.GetWorldUID().ToString() : "<no world>")}");
+                    output.AppendLine($"Layout world uid: {Plugin.LayoutCache.WorldUid}");
+
+                    if (layout == null)
                     {
                         output.AppendLine("Layout: not loaded");
                     }
-                    else if (Plugin.LayoutCache.Current.Failed)
+                    else if (layout.Failed)
                     {
-                        output.AppendLine($"Layout: FAILED - {Plugin.LayoutCache.Current.FailureReason}");
+                        output.AppendLine($"Layout: FAILED - {layout.FailureReason}");
                     }
                     else
                     {
-                        output.AppendLine($"Layout: loaded ({Plugin.LayoutCache.Current.GroupSpawnPositions.Count} spawns, frozen={Plugin.LayoutCache.Current.Frozen})");
-                        foreach (var pair in Plugin.LayoutCache.Current.GroupSpawnPositions)
+                        output.AppendLine($"Layout: loaded ({layout.GroupSpawnPositions.Count} spawns, frozen={layout.Frozen})");
+                        foreach (var pair in layout.GroupSpawnPositions)
                         {
                             output.AppendLine($"  {pair.Key}: ({pair.Value.x:F0}, {pair.Value.z:F0})");
                         }

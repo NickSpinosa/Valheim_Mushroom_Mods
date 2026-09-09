@@ -11,6 +11,12 @@ namespace SeparateSpawns
         private static bool _subscribed;
         private static bool _bootstrapStarted;
 
+        /// <summary>
+        /// Subscribes to this world's location generation. Called once per world - from
+        /// <see cref="Patches.WorldLifecyclePatches"/> on every <c>ZoneSystem.Awake</c>,
+        /// not once per process - because each world builds a new ZoneSystem and the
+        /// subscription does not survive the old one. Idempotent within a world.
+        /// </summary>
         public static void Initialize(Plugin plugin)
         {
             _plugin = plugin;
@@ -30,6 +36,14 @@ namespace SeparateSpawns
             }
         }
 
+        /// <summary>
+        /// Drops every piece of per-world state so the next world bootstraps from
+        /// scratch. Both flags are guards against doing the work twice for one world,
+        /// not against doing it twice in one process - leaving them set is what made a
+        /// second world reuse the first world's layout (issue #38).
+        ///
+        /// Safe to call when no world was ever loaded, and safe to call twice.
+        /// </summary>
         public static void Shutdown()
         {
             if (_subscribed && ZoneSystem.instance != null)
@@ -39,6 +53,8 @@ namespace SeparateSpawns
 
             _subscribed = false;
             _bootstrapStarted = false;
+
+            Plugin.LayoutCache?.Clear();
         }
 
         private static void OnLocationsGenerated()
