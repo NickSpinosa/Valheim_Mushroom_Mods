@@ -136,8 +136,10 @@ internal static class StaggerPercent
 /// <summary>
 /// Append a magenta stagger grant line on shield tooltips (next to block stats).
 /// </summary>
+// 1.0.7 added a trailing `bool appending = false` to the static overload; the type
+// list must name every parameter, optional ones included, or Harmony finds no target.
 [HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip),
-    typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int))]
+    typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int), typeof(bool))]
 internal static class ItemData_GetTooltip_Patch
 {
     private static void Postfix(ItemDrop.ItemData item, int qualityLevel, ref string __result)
