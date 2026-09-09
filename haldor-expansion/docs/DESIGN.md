@@ -79,7 +79,13 @@ HornOfCalling / vegvisir-compass; see those mods' docs for the full failure mode
 - **Bare BepInEx 5 + HarmonyX.** Gathering rows are vanilla prefabs already in
   `ObjectDB`. The Super Mist Torch is a hand-registered clone — Jötunn would only
   shrink that registration, at the cost of a hard dependency every player would need.
-- **Harmony postfix on `Trader.GetAvailableItems`.** The ZNet hooks for config sync
+- **Harmony postfix on `Trader.GetAvailableItems`.** Rows are built in C#, so every
+  field on `Trader.TradeItem` has to be filled by hand — Unity's serializer gives
+  vanilla rows non-null objects and empty strings, and `StoreGui` dereferences
+  several of the fields 1.0.7 added without a guard. See
+  [trade-item-1.0.7.md](trade-item-1.0.7.md) for which call sites, and why the
+  purchase effect is borrowed from a vanilla row rather than left empty.
+  The ZNet hooks for config sync
   are no longer patched here — MushroomSync owns them for every mod that syncs.
   Confirmed present in the current assembly. No installed plugin patches the trader
   method; ValheimPlus references `StoreGui` only (UI-level), so conflict risk is low.
