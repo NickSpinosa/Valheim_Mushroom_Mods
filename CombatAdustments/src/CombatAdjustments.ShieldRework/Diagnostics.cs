@@ -182,22 +182,41 @@ internal static class Diagnostics
         }
 
         Coverage(sb, known, "FeastUnlocks spice gates", FeastUnlocks.TrackedSpicePrefabs);
-        Coverage(sb, known, "FeastUnlocks recipe gates", FeastUnlocks.TrackedRecipePrefabs);
-        Coverage(sb, known, "FeastStats", FeastStats.TrackedPrefabs);
+        Coverage(sb, known, "FeastUnlocks recipe gates", FeastUnlocks.TrackedRecipePrefabs,
+                 FeastUnlocks.TrackedRecipeAliases);
+        Coverage(sb, known, "FeastStats", FeastStats.TrackedPrefabs, FeastStats.AliasPrefabs);
         Coverage(sb, known, "WeaponBlockStats", WeaponBlockStats.TrackedPrefabs);
         Coverage(sb, known, "ShieldStats tower seeds", ShieldStats.TrackedTowerSeedPrefabs);
         Coverage(sb, known, "ShieldStats grant steps", ShieldStats.TrackedGrantStepPrefabs);
         sb.AppendLine();
+        sb.AppendLine("  NOTE: MISSING is a defect — a wrong spelling, or a prefab this game");
+        sb.AppendLine("        version does not have. 'alias' rows are not: they are spare");
+        sb.AppendLine("        spellings deliberately carried beside a real name, and ObjectDB");
+        sb.AppendLine("        is not expected to contain them. A healthy dump has zero MISSING.");
+        sb.AppendLine();
     }
 
+    /// <summary>
+    /// One coverage block. <paramref name="aliases"/> names entries that exist only as
+    /// spare spellings of a prefab already covered by another row, so their absence is
+    /// the expected result rather than a defect worth flagging.
+    /// </summary>
     private static void Coverage(StringBuilder sb, HashSet<string> known, string label,
-                                 IEnumerable<string> prefabs)
+                                 IEnumerable<string> prefabs, IEnumerable<string>? aliases = null)
     {
+        var aliasSet = aliases == null
+            ? null
+            : new HashSet<string>(aliases, StringComparer.OrdinalIgnoreCase);
+
         sb.AppendLine("  [" + label + "]");
         foreach (string prefab in prefabs)
         {
-            sb.AppendLine("    " + prefab.PadRight(32)
-                          + (known.Contains(prefab) ? "ok" : "MISSING — wrong spelling, or not in this game version"));
+            string status = known.Contains(prefab)
+                ? "ok"
+                : aliasSet != null && aliasSet.Contains(prefab)
+                    ? "alias (not in this version)"
+                    : "MISSING — wrong spelling, or not in this game version";
+            sb.AppendLine("    " + prefab.PadRight(32) + status);
         }
     }
 
@@ -205,6 +224,10 @@ internal static class Diagnostics
     {
         sb.AppendLine("--- SHIELDS ---");
         sb.AppendLine("  name / kind / maxQ / blockPower / perLevel / maxBlock / parryBonus / our grant");
+        sb.AppendLine("  Block numbers are the CURRENT values. On a TOWER with");
+        sb.AppendLine("  Shield.EnableTowerArmorBonus on they already carry this mod's +5%");
+        sb.AppendLine("  (ceil per field), so divide it back out before re-deriving a seed:");
+        sb.AppendLine("  a tower printed as 166/7 is vanilla 158/6, i.e. 170 at max quality.");
         if (db?.m_items == null)
         {
             sb.AppendLine("  ObjectDB not available.");
@@ -236,7 +259,9 @@ internal static class Diagnostics
     {
         sb.AppendLine("--- FOODS (health / stamina / eitr / burn time) ---");
         sb.AppendLine("  Values shown are the CURRENT shared values, i.e. vanilla plus this mod's");
-        sb.AppendLine("  feast bonuses. Set Feasts.EnableStatBonuses = false to read vanilla numbers.");
+        sb.AppendLine("  feast bonuses. Feast rows also print the vanilla numbers FeastStats");
+        sb.AppendLine("  cached before it applied anything, so 'what is vanilla X?' is answered");
+        sb.AppendLine("  here without having to turn Feasts.EnableStatBonuses off and re-dump.");
         if (db?.m_items == null)
         {
             sb.AppendLine("  ObjectDB not available.");
@@ -252,11 +277,18 @@ internal static class Diagnostics
             if (shared.m_food <= 0f && shared.m_foodStamina <= 0f && shared.m_foodEitr <= 0f)
                 continue;
 
-            sb.AppendLine("  " + ShieldStats.PrefabName(go!).PadRight(32)
+            string prefab = ShieldStats.PrefabName(go!);
+            string vanilla = FeastStats.TryGetOriginal(prefab, out var orig)
+                ? "   vanilla " + Num(orig.health) + " / " + Num(orig.stamina)
+                  + " / " + Num(orig.eitr)
+                : string.Empty;
+
+            sb.AppendLine("  " + prefab.PadRight(32)
                           + Num(shared.m_food).PadRight(8)
                           + Num(shared.m_foodStamina).PadRight(8)
                           + Num(shared.m_foodEitr).PadRight(8)
-                          + Num(shared.m_foodBurnTime));
+                          + Num(shared.m_foodBurnTime).PadRight(8)
+                          + vanilla);
         }
         sb.AppendLine();
     }

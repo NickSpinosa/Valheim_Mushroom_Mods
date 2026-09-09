@@ -80,6 +80,12 @@ internal static class FeastUnlocks
     /// <summary>Prefabs the recipe gate looks for, for the diagnostics coverage report.</summary>
     internal static IEnumerable<string> TrackedRecipePrefabs => RecipeKeys.Keys;
 
+    /// <summary>
+    /// The singular spellings above are deliberate aliases, not prefabs ObjectDB is
+    /// expected to have. Same list as <see cref="FeastStats.AliasPrefabs"/>, which owns it.
+    /// </summary>
+    internal static IEnumerable<string> TrackedRecipeAliases => FeastStats.AliasPrefabs;
+
     private static readonly HashSet<int> RemappedTraders = new();
 
     internal static void ApplySpiceKeys(Trader trader)

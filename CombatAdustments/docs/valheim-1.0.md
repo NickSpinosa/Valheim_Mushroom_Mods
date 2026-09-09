@@ -47,8 +47,11 @@ none of them are in `assembly_valheim.dll`: item prefabs live in the asset
 bundles, and boss keys live on the boss prefab as data.
 
 The right source is an in-game `ObjectDB` dump. Nobody could run 1.0.7 while this
-was written, so the names below were recovered offline instead, and the dump tool
-was built as part of the same change so the next person never has to repeat it.
+was first written, so the names below were recovered offline instead, and the dump
+tool was built as part of the same change so the next person never has to repeat
+it. **The dump has since been run on 1.0.7** (Sep 2026) and the tables are
+corrected against it; what follows keeps the offline method and its score, because
+the next game update will pose the same problem.
 
 ### How the offline recovery worked, and why it is not proof
 
@@ -74,44 +77,70 @@ Two sources, both indirect:
 
 The naming pattern is what the Ashlands rows confirm. Ashlands is
 `FeastAshlands` / `SpiceAshlands` / `ShieldFlametal` / `THSwordSlayerBlood`; Deep
-North is `FeastDeepNorth` / `SpiceDeepNorth` / `Shield{Round,Tower,Buckler}Gold` /
-`THSwordGold_BloodLightning`. Note the two breaks with precedent: the shield shape
-is now spelled out in the name (`ShieldRoundGold`, not `ShieldGold` the way
-`ShieldFlametal` meant the round one), and elemental variants took an underscore
-and a compound element (`_FrostFire`, `_BloodLightning`, against Ashlands'
-`Blood` / `Lightning` / `Nature`).
+North is `FeastDeepNorth` / `SpiceDeepNorth` / `ShieldGold{,Tower,Buckler}` /
+`THSwordGold_BloodLightning`. Elemental variants did break with precedent — they
+took an underscore and a compound element (`_FrostFire`, `_BloodLightning`,
+against Ashlands' `Blood` / `Lightning` / `Nature`) — but the shields did not.
 
-### Confidence, row by row
+### The shields: the guess was wrong, and it was wrong the informative way
 
-**Confirmed** — full string seen, with an `Uncooked` / `Eat` / `_Material` sibling
-or a second independent hit:
+The tables first shipped `ShieldRoundGold` / `ShieldTowerGold` /
+`ShieldBucklerGold`, on the reading that 1.0 had started spelling the shape out
+in the name. The 1.0.7 dump has none of those three. The real names are
 
-`FeastDeepNorth`, `THSwordGold`, `AtgeirGold`, `SledgeGold`, `FistGold`,
-`KnifeGold`, `MaceGold`, `BowGold`, `AxeJotunBane`, `ShieldBucklerGold`, and the
-`_FrostFire` stems for atgeir, battleaxe, bow, crossbow, fist, knife, spear,
-sword and two-handed sword.
+```
+ShieldGold          Round    q3  blockPower 132  perLevel 6  maxBlock 144  parry 1.5
+ShieldGoldBuckler   Buckler  q3  blockPower  88  perLevel 6  maxBlock 100  parry 2.5
+ShieldGoldTower     Tower    q3  blockPower 166  perLevel 7  maxBlock 180  parry 0
+```
 
-**Inferred from a truncation plus the family pattern** — the form used in the
-tables, not seen whole:
+— exactly the `ShieldFlametal` / `ShieldFlametalTower` precedent, with the
+buckler suffixed the same way. Both candidate spellings really were in the
+bundles, so the bytes could not settle it; the tie-break should have been the
+precedent, not the *appearance* of a new convention in a set of truncated hits.
+The lesson to keep: when two live candidates disagree, the one that matches how
+the previous tier was named is the better guess, and a substring that merely
+*exists* is not evidence that the other one does not.
 
-`SpiceDeepNorth` (saw `SpiceDeepNor`, and lowercase `spicedeepnorth`),
-`ShieldRoundGold` and `ShieldTowerGold` (saw only their `…Uncooked`
-intermediates), `BattleaxeGold`, every `_BloodLightning` suffix (longest hit was
-`_BloodLightn`), and `defeated_frozenking`.
+The tower's numbers there are worth one more line, because they misread easily:
+166 / 180 is post-mod. `Shield.EnableTowerArmorBonus` has already added its +5%
+(`ceil(158 × 1.05) = 166`, `ceil(6 × 1.05) = 7`), so vanilla is 158 / +6 / **170**
+— which is the figure the leftover seed is derived from in
+`shield-rework-requirements.md`. The dump now says this in its SHIELDS header.
+
+### How the offline guesses scored
+
+The 1.0.7 dump settled every row. Kept for the next time someone has to recover
+names without a running game, because the *shape* of the errors is the reusable
+part:
+
+- **Every weapon row was right**, including the ones that were only ever seen
+  truncated: `BattleaxeGold`, all three `_FrostFire` and all three
+  `_BloodLightning` stems, `AxeJotunBane`. Truncation-plus-family-pattern is a
+  good inference when the family is real and no rival spelling exists.
+- **Every feast and spice row was right**, `SpiceDeepNorth` and `FeastDeepNorth`
+  included.
+- **All three shield rows were wrong** — the one place two live candidates
+  existed and precedent was overruled. See the section above.
+- `defeated_frozenking` is **still unconfirmed**: the dump's boss-key block reads
+  every key `set: False` in a world where no boss has been killed, which proves
+  nothing either way. Nothing gates on it (feasts shift to the *previous* boss),
+  so it stays as-is until someone kills the Deep North boss and re-dumps.
 
 **Deliberately excluded.** `<Weapon>GoldUncooked` is a crafting intermediate — a
-Material, not a weapon — and the tables must not carry it. `ShieldGold` and
-`ShieldGoldBuckler` both appear as real substrings alongside `ShieldRoundGold` and
-`ShieldBucklerGold`; a name can be a mesh or material rather than a prefab, and
-guessing between two live candidates is exactly what the dump is for.
-`Axe1h_JotunWarrior`, `Axe2h_JotunWarrior` and `Sword2h_JotunWarrior` look like
-the JotunWarrior enemy's own weapon models, not player items.
+Material, not a weapon — and the tables must not carry it (the dump confirms
+those prefabs exist and are Materials). `Axe1h_JotunWarrior`,
+`Axe2h_JotunWarrior` and `Sword2h_JotunWarrior` are the JotunWarrior enemy's own
+weapons; `Axe1h_JotunWarrior 1` even shows up in the SHIELDS section as a q1
+round with 10 block power, which is what an enemy's off-hand looks like, not a
+player item.
 
 A wrong guess is not silent for feasts — `FeastStats.CanonicalPrefabs` logs
 `prefab '…' not found in ObjectDB` at startup. It *is* silent for a weapon or
 shield row, which simply never matches. That asymmetry is why the dump has a
 coverage section that prints `MISSING` for every table entry ObjectDB does not
-have.
+have — every entry except the handful of deliberate aliases, which it labels as
+such so `MISSING` keeps meaning "defect".
 
 ### The dump
 
@@ -130,9 +159,24 @@ dump — one trigger per kind of installation.
 
 It prints the world's global keys, the eight boss keys the feast gate names with
 whether each is set, the coverage report, then every `ItemDrop` with its item
-type, plus shield block/parry/grant lines and food health/stamina/eitr lines. The
-food numbers are the values **after** this mod's bonuses; set
-`Feasts.EnableStatBonuses = false` before reading vanilla ones.
+type, plus shield block/parry/grant lines and food health/stamina/eitr lines.
+
+Two things it learned from its first real run:
+
+- **Read the numbers as *current*, not vanilla.** Food rows are post-bonus and
+  tower block armor is post-+5%. Both are now labelled in the file. Feast rows
+  additionally print the vanilla triple beside the current one, taken from the
+  `FeastStats.Originals` cache — the mod has to keep the pre-bonus values anyway
+  so a config change can be re-applied idempotently, so "what is vanilla
+  `FeastDeepNorth` eitr?" is answerable from a normal dump instead of requiring a
+  second run with `Feasts.EnableStatBonuses = false`.
+- **`MISSING` has to mean defect.** The first run printed it for `FeastSwamp`,
+  `FeastMountain` and `FeastOcean`, which are deliberate singular aliases sitting
+  next to the real plural names, so a correct dump appeared to contain three
+  faults. Those entries are now listed in `FeastStats.AliasPrefabs` and report
+  `alias (not in this version)`. A report whose expected output is "three of these
+  are fine" trains the reader to skim past the line that matters; the target is
+  zero `MISSING`, and anything else is worth acting on.
 
 ### `m_nonPlayer`
 

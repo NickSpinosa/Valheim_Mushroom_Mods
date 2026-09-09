@@ -70,14 +70,14 @@ internal static class ShieldStats
             // Seed for Mistlands use (still the best tower until Flametal).
             ["ShieldBlackmetalTower"] = 55f,
             ["ShieldFlametalTower"] = ShieldReworkPlugin.FlametalTowerGrant,
-            // Deep North (1.0), Gold line. PROVISIONAL: the leftover seed needs the
-            // shield's real block armor and the biome's native medium hit, and neither
-            // is known offline. +85 continues the seed progression (5, 15, 25, 50, 55,
-            // 70) by its own last step rather than inventing a new curve. Without a row
-            // here a Gold tower falls back to the block-armor ratio, which is exactly
-            // the under-seeding the leftover method exists to correct - see
-            // docs/shield-rework-requirements.md and docs/valheim-1.0.md.
-            ["ShieldTowerGold"] = 85f,
+            // Deep North (1.0), Gold line. Vanilla max block 170 (the dump reads 166/7/180
+            // because this mod's +5% tower armor is already on it: ceil(158*1.05) = 166,
+            // ceil(6*1.05) = 7). The Deep North native medium hit is not in ObjectDB, but
+            // every tower from the Mountains on sits at hit ~= block (serpent 85/72,
+            // black metal 120/116, flametal 150/152), so carrying the Ashlands ratio
+            // forward gives ~168 through 170: leftover 168^2/(4*170) = 41.5, and
+            // 70 * 41.5/37 = 78.5 -> 80. See docs/shield-rework-requirements.md.
+            ["ShieldGoldTower"] = 80f,
         };
 
     /// <summary>Prefabs with an explicit tower seed, for the diagnostics coverage report.</summary>
@@ -222,14 +222,17 @@ internal static class ShieldStats
             // Flametal tower + round
             "ShieldFlametal",
             "ShieldFlametalTower",
-            // Deep North (1.0), Gold line: tower, round and buckler. Kept at +3/★ rather
-            // than opening a fourth band — the bands describe how evenly a grant is spread
-            // over the ★ steps, not the tier, and a fourth band is a balance change this
-            // ticket has no numbers for. Bucklers are forced to +1 by kind regardless, so
-            // listing ShieldBucklerGold here is documentation, not behaviour.
-            "ShieldRoundGold",
-            "ShieldTowerGold",
-            "ShieldBucklerGold",
+            // Deep North (1.0), Gold line: tower, round and buckler. Names confirmed from
+            // an in-game ObjectDB dump on 1.0.7 — the line follows the ShieldFlametal /
+            // ShieldFlametalTower precedent, with the buckler as ShieldGoldBuckler.
+            // Kept at +3/★ rather than opening a fourth band — the bands describe how
+            // evenly a grant is spread over the ★ steps, not the tier, and a fourth band
+            // is a balance change this ticket has no numbers for. Bucklers are forced to
+            // +1 by kind regardless, so listing ShieldGoldBuckler here is documentation,
+            // not behaviour.
+            "ShieldGold",
+            "ShieldGoldTower",
+            "ShieldGoldBuckler",
         };
 
     private static readonly HashSet<string> GrantStep2 =

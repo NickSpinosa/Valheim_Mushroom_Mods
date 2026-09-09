@@ -26,8 +26,11 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     /// <summary>
     /// Bump when designed StaggerGrants table changes so existing .cfg values are rewritten to seeds.
     /// v3: Deep North (Gold) shields added to the designed table. Without a bump, a world
-    /// that already started on 1.0 has ShieldTowerGold in its .cfg at the block-armor
-    /// fallback value and would never pick up the seed.
+    /// that already started on 1.0 has ShieldGoldTower in its .cfg at whatever the
+    /// block-armor fallback happened to produce on the pass that first bound it, and
+    /// would never pick up the seed. (The fallback and the designed seed agree at 80 on
+    /// a first ObjectDB pass; they do not on a later one, where the fallback reads block
+    /// armor this mod has already raised by 5%.)
     /// </summary>
     public const int CurrentGrantTableVersion = 3;
 
@@ -127,9 +130,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         AshlandsFeastEitrBonus = ModConfig.Bind("Feasts", "AshlandsEitrBonus", 12f,
             "Extra eitr added to Ashlands Gourmet Bowl (vanilla 38 → 50). Also receives HealthBonus / StaminaBonus.");
         DeepNorthFeastEitrBonus = ModConfig.Bind("Feasts", "DeepNorthEitrBonus", 17f,
-            "Extra eitr added to the Deep North feast. Also receives HealthBonus / StaminaBonus. "
-            + "Provisional: the vanilla eitr value is unconfirmed, so this is set to reach 60 "
-            + "(Mistlands 40, Ashlands 50) assuming vanilla 43. Run [Diagnostics] DumpObjectDb to read the real number.");
+            "Extra eitr added to the Deep North feast (vanilla 43 → 60). Also receives HealthBonus / StaminaBonus.");
 
         DumpObjectDb = ModConfig.Bind("Diagnostics", "DumpObjectDb", false,
             "Write every ObjectDB item prefab, its item type, shield and food stats, and the world's "

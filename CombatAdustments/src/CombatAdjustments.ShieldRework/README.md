@@ -45,13 +45,14 @@ and already-eaten feasts pick up the new numbers.
 | Sailor's Bounty | +15 | +15 | — |
 | Mistlands | +10 | +10 | +7 (33 → 40) |
 | Ashlands | +10 | +10 | +12 (38 → 50) |
-| Deep North | +10 | +10 | +17 (→ 60, *provisional*) |
+| Deep North | +10 | +10 | +17 (43 → 60) |
 
 Boss unlocks are **not** configurable.
 
-The Deep North eitr bonus is an extrapolation, not a measured value — see
-[`docs/feasts.md`](../../docs/feasts.md) for how to correct it from the
-diagnostics dump.
+The Deep North eitr bonus started as an extrapolation and was confirmed against
+an in-game dump on 1.0.7 (vanilla 43). The dump's FOODS section prints each
+feast's vanilla values beside its current ones — see
+[`docs/feasts.md`](../../docs/feasts.md).
 
 ### Sailing
 

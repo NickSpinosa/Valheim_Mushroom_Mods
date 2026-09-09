@@ -67,6 +67,14 @@ internal static class FeastStats
         shared.m_foodEitr = orig.eitr + EitrBonus(kind);
     }
 
+    /// <summary>
+    /// Vanilla food values as they were before this mod first touched them, for the
+    /// diagnostics dump. <see cref="ApplyToShared"/> caches them on the first ObjectDB
+    /// apply, and the dump runs after that apply, so a feast row always has one.
+    /// </summary>
+    internal static bool TryGetOriginal(string prefab, out (float health, float stamina, float eitr) original) =>
+        Originals.TryGetValue(prefab, out original);
+
     internal static bool TryIdentify(string prefab, out FeastKind kind)
     {
         if (PrefabKinds.TryGetValue(prefab, out kind))
@@ -127,6 +135,25 @@ internal static class FeastStats
     /// <summary>Prefabs this table looks for, for the diagnostics coverage report.</summary>
     internal static IEnumerable<string> TrackedPrefabs => PrefabKinds.Keys;
 
+    /// <summary>
+    /// Deliberate singular-spelling aliases carried beside the real plural prefab names,
+    /// so a table lookup still resolves if a prefab is ever spelled either way. ObjectDB
+    /// is not expected to contain them, in this game version or any other — the coverage
+    /// report labels them instead of calling them MISSING, so a clean dump means "zero
+    /// MISSING lines" with nothing to explain away. Shared with
+    /// <see cref="FeastUnlocks"/>, whose recipe gate carries the same aliases.
+    /// </summary>
+    internal static readonly HashSet<string> AliasPrefabs =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "FeastBlackForest",
+            "FeastSwamp",
+            "FeastOcean",
+            "FeastMountain",
+        };
+
+    // Singular spellings (FeastSwamp, FeastOcean, FeastMountain) are aliases, not
+    // expected prefabs — see AliasPrefabs.
     private static readonly Dictionary<string, FeastKind> PrefabKinds =
         new(StringComparer.OrdinalIgnoreCase)
         {

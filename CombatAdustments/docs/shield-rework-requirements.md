@@ -51,7 +51,7 @@ etc.). The HUD stagger bar is also orange.
   - **+2 / ★** — silver / serpent through carapace (silver/black metal/carapace
     rounds, serpent/black metal towers, …)
   - **+3 / ★** — flametal (tower + round), and the Deep North Gold line
-    (`ShieldTowerGold` / `ShieldRoundGold`). Deliberately not a new +4 band: the
+    (`ShieldGoldTower` / `ShieldGold`). Deliberately not a new +4 band: the
     bands set how evenly a grant spreads across the ★ steps, not which tier the
     shield belongs to, and a fourth band would be a balance change with no
     numbers behind it.
@@ -87,7 +87,7 @@ bone/draugr 48, iron/draugr elite 58, serpent/fenring 85, black metal/seeker cla
 
 | Shield | Max block | Native medium hit | Leftover | Seed grant |
 | --- | --- | --- | --- | --- |
-| Gold tower shield (`ShieldTowerGold`, Deep North) | ? | ? | ? | **+85** *(provisional)* |
+| Gold tower shield (`ShieldGoldTower`, Deep North) | 170 | ~168 (carried forward, see below) | ~41.5 | **+80** |
 | Flametal tower shield | 152 | 150 | ~37 | **+70** (anchor) |
 | Black metal tower shield | 116 | 120 | ~31 | **+55** |
 | Serpent scale shield | 72 | 85 | ~25 | **+50** |
@@ -99,28 +99,65 @@ bone/draugr 48, iron/draugr elite 58, serpent/fenring 85, black metal/seeker cla
 iron +29, bone +20, wood +10 — leftover seeding raises serpent/BM for the Mountain–
 Mistlands damage spike and lowers wood.)
 
-**The Deep North row is not seeded, it is extrapolated.** The formula needs the
-shield's real max block armor and the biome's native medium hit, and neither can
-be read outside the running game. +85 continues the existing seeds (5, 15, 25, 50,
-55, 70) by their own last step. What matters is that a row exists at all: with no
-entry, `SeedMaxGrant` falls through to the block-armor ratio for towers, which is
-the exact under-seeding the leftover method was introduced to correct — so the
-generic fallback is *predictably* wrong for a tower, not merely unverified. Re-seed
-it properly from the FOODS/SHIELDS sections of the diagnostics dump
-(`[Diagnostics] DumpObjectDb`, or `cadump`), which print every shield's block
-armor per quality. `CurrentGrantTableVersion` is bumped to 3 so a config written
-before this row existed gets rewritten.
+Every "Max block" above is the **vanilla** max-quality block armor —
+`blockPower + (maxQuality − 1) × blockPowerPerLevel` before R2's +5% tower bonus.
+The diagnostics dump prints the *current* values, so a tower's numbers there are
+already 5% high; divide it back out before reusing them (the dump says so in its
+SHIELDS header).
+
+**Deriving the Deep North row (Sep 2026, from the 1.0.7 dump).** The dump reads
+`ShieldGoldTower` at 166 / +7 per level / 180 at max quality. That is post-bonus:
+`ceil(158 × 1.05) = 166` and `ceil(6 × 1.05) = 7`, so vanilla is **158 / +6 / 170**
+— the same shape as every other tower in the table (flametal 140 / +6 / 152).
+
+The other half of the formula, the biome's native medium hit, is *not* in
+ObjectDB — it is creature data, and the dump only walks items. It can be carried
+forward instead: from the Mountains on, each tower is built for a biome whose
+medium hit lands right around its own block armor (serpent 85 vs 72, black metal
+120 vs 116, flametal 150 vs 152). Holding the Ashlands ratio, 150 / 152 = 0.99,
+gives a Deep North medium hit of `0.99 × 170 ≈ 168`. Then, with the vanilla armor
+formula in its quadratic regime:
+
+```
+leftover(168, 170) = 168² / (4 × 170) = 28224 / 680 = 41.5
+grant             = 70 × 41.5 / 37.0  = 78.5  →  nearest 5  →  +80
+```
+
+Sanity check on the same arithmetic: because `leftover = d²/4B` collapses to
+`(d/B)² × B/4`, holding `d/B` fixed makes the seed scale *linearly* with block
+armor, so `70 × 170/152 = 78.3 → +80` — the same answer by the shorter route, and
+also what the generic block-armor fallback produces. Those two agreeing is a
+property of this row, not of the method: the fallback is wrong wherever the
+biome's damage outruns the shield (Mountains and Mistlands, which is why the
+leftover method exists), and Ashlands → Deep North happens to be a tier where it
+does not. The explicit row stays so the value is the designed one rather than a
+coincidence that moves if the Flametal anchor or the fallback divisor is ever
+retuned.
+
+**Still worth re-checking in game.** The 168 is the one carried-forward number
+left; the seed is sensitive to it (a real medium hit of 200 would give
+`200²/680 = 58.8 → 70 × 58.8/37 = +110`). Confirm it against what a Deep North
+enemy's ordinary swing actually leaves through a Gold tower before treating +80
+as final. `CurrentGrantTableVersion` is bumped to 3 so a config written before
+this row existed gets rewritten from the table instead of keeping whatever the
+fallback bound.
 
 Rounds and bucklers get no Deep North row on purpose: their seeds *are* the
 block-armor ratio (round ≈ 45/126 × block, buckler ≈ 20/90 × block), so a new
 shield of either kind is already seeded by the designed formula the moment
-ObjectDB hands it over. Only the quality **step** needed adding.
+ObjectDB hands it over. Only the quality **step** needed adding. The dump
+confirms it: `ShieldGold` 144 max block → `144 × 45/126 = 51.4 → +50`, and
+`ShieldGoldBuckler` 100 → `100 × 20/90 = 22.2 → +20`, both already correct with
+no table entry. (Neither is a tower, so neither carries the +5% — their printed
+numbers are vanilla.)
 
 Round / buckler grants still use block-armor ratios from their anchors (round ≈
 45/126 × block, buckler ≈ 20/90 × block), then **rounded to the nearest 5**.
 
 | Shield | Max block armor | Raw seed | Grant (nearest 5) |
 | --- | --- | --- | --- |
+| Gold shield (round, Deep North) | 144 | 51.4 | **+50** |
+| Gold buckler (`ShieldGoldBuckler`) | 100 | 22.2 | **+20** |
 | Flametal shield (round) | 126 | 45 | **+45** (anchor) |
 | Carapace shield (round) | 108 | 39 | **+40** |
 | Black metal shield (round) | 90 | 32 | **+30** |
