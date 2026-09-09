@@ -14,7 +14,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.7.0";
+    public const string PluginVersion = "0.7.1";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -38,7 +38,6 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<bool> EnableDurabilityBonus = null!;
     internal static ConfigEntry<bool> EnableTwoHandedCombat = null!;
     internal static ConfigEntry<float> GreatswordPrimaryStaggerMultiplier = null!;
-    internal static ConfigEntry<float> HyperArmorDamageReduction = null!;
     internal static ConfigEntry<bool> AreaAdrenalinePerEnemy = null!;
     internal static ConfigEntry<bool> EnableWeaponBlockPerLevel = null!;
     internal static ConfigEntry<int> GrantTableVersion = null!;
@@ -98,8 +97,6 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             "Enable stagger-only hyper armor and damage/stagger adjustments for two-handed melee weapons.");
         GreatswordPrimaryStaggerMultiplier = ModConfig.Bind("Two-Handed Combat", "GreatswordPrimaryStaggerMultiplier", 1.5f,
             "Final stagger multiplier for primary greatsword swings. 1.5 = +50%.");
-        HyperArmorDamageReduction = ModConfig.Bind("Two-Handed Combat", "HyperArmorDamageReduction", 0.25f,
-            "Fraction of incoming damage ignored during hyper-armor (greatsword / battleaxe / sledge swings). 0.25 = 25% reduction. Stacks multiplicatively with Bonemass and other resists. Clamped to 0–1.");
         AreaAdrenalinePerEnemy = ModConfig.Bind("Two-Handed Combat", "AreaAdrenalinePerEnemy", true,
             "Two-handed club ground slams (Stagbreaker, Iron Sledge, Demolisher) grant adrenaline per enemy hit, like swing attacks, instead of once per slam.");
         EnableWeaponBlockPerLevel = ModConfig.Bind("Two-Handed Combat", "EnableWeaponBlockPerLevel", true,
@@ -151,7 +148,6 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             EnableDurabilityBonus,
             EnableTwoHandedCombat,
             GreatswordPrimaryStaggerMultiplier,
-            HyperArmorDamageReduction,
             AreaAdrenalinePerEnemy,
             EnableWeaponBlockPerLevel,
             TooltipColorHex,

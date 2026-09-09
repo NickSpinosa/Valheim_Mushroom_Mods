@@ -158,9 +158,10 @@ Round / buckler grants still use block-armor ratios from their anchors (round â‰
   `Hyper-armor`.
 - **Greatswords:** Primary-chain swings apply **1.5x stagger**. The secondary
   is unchanged.
-- **Damage:** Greatswords, battleaxes, sledges, and atgeirs deal **+5% damage**.
-  Atgeirs receive no hyper armor because their spin already provides exceptional
-  crowd control and stagger.
+- **Damage:** Greatswords, battleaxes, and sledges deal **+10% damage**
+  (bonus rounded down per damage type). Atgeirs receive no hyper armor and no
+  damage bonus because their spin already provides exceptional crowd control
+  and stagger.
 - **Slam adrenaline:** Two-handed club ground slams (`DoAreaAttack`) grant
   adrenaline **per enemy hit** (each scaled by that enemy's
   `m_enemyAdrenalineMultiplier`), matching swing attacks. Vanilla area attacks

@@ -21,9 +21,8 @@ Every grant is overridable in `BepInEx/config` (client) or `config/bepinex` (ded
 
 - Greatswords, battleaxes, and sledges receive **Balanced** hyper armor: it
   begins when the real attack animation begins and ends after that swing's hit
-  event. During that window stagger gain is blocked and incoming damage is
-  reduced by **25%** (configurable; stacks with Bonemass). Knockback is
-  unchanged. Tooltips show orange `Hyper-armor (-25% dmg)`.
+  event. During that window stagger gain is blocked. Incoming damage and
+  knockback are unchanged. Tooltips show orange `Hyper-armor`.
 - Greatsword primary-chain swings deal **1.5x** stagger.
 - Greatswords, battleaxes, and sledges deal **+10% damage** (bonus rounded down
   per damage type; reflected on weapon tooltips). Atgeirs are unchanged.
@@ -99,7 +98,7 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   towers/rounds; **bucklers always +1 / ★**. `GrantTableVersion` re-seeds max
   values when the designed table changes.
 - `Two-Handed Combat.Enable` / `GreatswordPrimaryStaggerMultiplier`
-  / `HyperArmorDamageReduction` / `AreaAdrenalinePerEnemy`
+  / `AreaAdrenalinePerEnemy`
 - `Feasts.EnableStatBonuses` / `HealthBonus` / `StaminaBonus` /
   `SailorsHealthBonus` / `SailorsStaminaBonus` / `MistlandsEitrBonus` /
   `AshlandsEitrBonus`. Unlock bosses are hardcoded.
@@ -155,3 +154,6 @@ No `devcommands` required.
 - Difficulty: Harmony postfix on `Game.GetDifficultyDamageScaleEnemy` recounts
   nearby players without the 5-player clamp when
   `Difficulty.EnableUncapHealthScaling` is on. Damage scaling is unchanged.
+- Two-handed +10% damage must take `HitData.DamageTypes` by **ref**. It is a
+  struct; the first implementation mutated a copy, so tooltips and hits stayed
+  at vanilla numbers (iron sledge 55).

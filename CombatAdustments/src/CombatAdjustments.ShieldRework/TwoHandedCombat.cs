@@ -12,8 +12,7 @@ namespace CombatAdjustments.ShieldRework;
 ///
 /// Balanced hyper armor begins once Valheim enters an attack animation and ends
 /// after that attack's single hit event. It blocks stagger bar fill and the stagger
-/// animation, and applies configurable damage reduction (default 25%, stacks with
-/// Bonemass). Incoming knockback remains vanilla.
+/// animation. Incoming damage and knockback remain vanilla.
 /// </summary>
 internal static class TwoHandedCombat
 {
@@ -65,7 +64,11 @@ internal static class TwoHandedCombat
             or ItemDrop.ItemData.AnimationState.TwoHandedClub;
     }
 
-    internal static void ApplyRoundedTenPercentDamageBonus(HitData.DamageTypes damages)
+    /// <summary>
+    /// Must take the struct by ref. <see cref="HitData.DamageTypes"/> is a value type;
+    /// a by-value parameter mutates a copy and the tooltip / hit stay vanilla.
+    /// </summary>
+    internal static void ApplyRoundedTenPercentDamageBonus(ref HitData.DamageTypes damages)
     {
         damages.m_damage = AddRoundedPercentBonus(damages.m_damage);
         damages.m_blunt = AddRoundedPercentBonus(damages.m_blunt);
@@ -123,31 +126,6 @@ internal static class TwoHandedCombat
         && ActiveHyperArmor.TryGetValue(player, out Attack? attack)
         && player.InAttack()
         && ReferenceEquals(attack.GetWeapon(), player.GetCurrentWeapon());
-
-    /// <summary>
-    /// Multiplier applied to incoming hits during hyper armor (1 = no reduction).
-    /// Config is a fraction reduced (0.25 → take 75% damage). Stacks with Bonemass.
-    /// </summary>
-    internal static float HyperArmorDamageTakenMultiplier
-    {
-        get
-        {
-            float reduction = Mathf.Clamp01(ShieldReworkPlugin.HyperArmorDamageReduction.Value);
-            return 1f - reduction;
-        }
-    }
-
-    internal static void ApplyHyperArmorDamageReduction(Player player, HitData hit)
-    {
-        if (hit == null || !HasActiveHyperArmor(player))
-            return;
-
-        float multiplier = HyperArmorDamageTakenMultiplier;
-        if (multiplier >= 0.999f)
-            return;
-
-        hit.ApplyModifier(multiplier);
-    }
 
     private static Humanoid? AttackOwner(Attack attack) =>
         Traverse.Create(attack).Field("m_character").GetValue<Humanoid>();
@@ -263,18 +241,6 @@ internal static class Attack_Stop_HyperArmor_Patch
     private static void Postfix(Attack __instance) => TwoHandedCombat.EndBalancedHyperArmor(__instance);
 }
 
-[HarmonyPatch(typeof(Character), "RPC_Damage")]
-internal static class Character_RPC_Damage_HyperArmor_Patch
-{
-    // Apply before Bonemass resists so the reduction stacks multiplicatively.
-    // Also covers fire/poison stripped off before ApplyDamage.
-    private static void Prefix(Character __instance, HitData hit)
-    {
-        if (__instance is Player player)
-            TwoHandedCombat.ApplyHyperArmorDamageReduction(player, hit);
-    }
-}
-
 [HarmonyPatch(typeof(Character), "AddStaggerDamage")]
 internal static class Character_AddStaggerDamage_HyperArmor_Patch
 {
@@ -311,7 +277,7 @@ internal static class Attack_ModifyDamage_TwoHanded_Patch
         if (!TwoHandedCombat.HasTwoHandedDamageBonus(weapon))
             return;
 
-        TwoHandedCombat.ApplyRoundedTenPercentDamageBonus(hitData.m_damage);
+        TwoHandedCombat.ApplyRoundedTenPercentDamageBonus(ref hitData.m_damage);
 
         if (TwoHandedCombat.IsGreatswordPrimary(__instance, weapon))
             hitData.m_staggerMultiplier *= ShieldReworkPlugin.GreatswordPrimaryStaggerMultiplier.Value;
@@ -328,7 +294,7 @@ internal static class ItemData_GetDamage_TwoHandedTooltip_Patch
             || !TwoHandedCombat.HasTwoHandedDamageBonus(__instance))
             return;
 
-        TwoHandedCombat.ApplyRoundedTenPercentDamageBonus(__result);
+        TwoHandedCombat.ApplyRoundedTenPercentDamageBonus(ref __result);
     }
 }
 
@@ -345,10 +311,7 @@ internal static class ItemData_GetTooltip_TwoHanded_Patch
         if (!TwoHandedCombat.HasBalancedHyperArmor(item))
             return;
 
-        float reductionPct = Mathf.Clamp01(ShieldReworkPlugin.HyperArmorDamageReduction.Value) * 100f;
-        string line = reductionPct > 0.05f
-            ? $"\n<color=orange>Hyper-armor (-{reductionPct:0.#}% dmg)</color>"
-            : "\n<color=orange>Hyper-armor</color>";
+        const string line = "\n<color=orange>Hyper-armor</color>";
         if (__result.IndexOf("Hyper-armor", System.StringComparison.OrdinalIgnoreCase) >= 0)
             return;
 
