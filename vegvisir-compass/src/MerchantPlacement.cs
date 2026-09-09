@@ -64,8 +64,8 @@ namespace VegvisirCompass
         /// the camp. Deliberately in memory only - it is a refinement, not state worth
         /// persisting, and a cold start simply falls back to the camp position.
         /// </summary>
-        private static readonly Dictionary<string, Dictionary<Vector2i, Pose>> _lastSeen
-            = new Dictionary<string, Dictionary<Vector2i, Pose>>();
+        private static readonly Dictionary<string, Dictionary<Vector2s, Pose>> _lastSeen
+            = new Dictionary<string, Dictionary<Vector2s, Pose>>();
 
         /// <summary>Global key recording that this merchant's site is settled for good.</summary>
         private static string LockKey(MerchantDef def) => "VC_MerchantLocked_" + def.LocationName;
@@ -233,7 +233,7 @@ namespace VegvisirCompass
             {
                 Vector3 position = zdo.GetPosition();
 
-                if (IsWithinVanillaRange(zones, position))
+                if (IsWithinVanillaRange(position))
                 {
                     Remember(def, ZoneSystem.GetZone(position), position, zdo.GetRotation());
                     standing.Add(position);
@@ -244,7 +244,7 @@ namespace VegvisirCompass
                 Plugin.Debug($"Despawned the provisional {def.DisplayName} at {position}; nobody is near.");
             }
 
-            foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> pair in zones.m_locationInstances)
+            foreach (KeyValuePair<Vector2s, ZoneSystem.LocationInstance> pair in zones.m_locationInstances)
             {
                 ZoneSystem.LocationInstance camp = pair.Value;
 
@@ -252,7 +252,7 @@ namespace VegvisirCompass
                 // candidate is still just a reserved spot on the map.
                 if (!camp.m_placed) continue;
                 if (PrefabName(camp) != def.LocationName) continue;
-                if (!IsWithinVanillaRange(zones, camp.m_position)) continue;
+                if (!IsWithinVanillaRange(camp.m_position)) continue;
                 if (AlreadyStanding(standing, camp.m_position)) continue;
 
                 if (SpawnTrader(def, pair.Key, camp.m_position))
@@ -275,33 +275,29 @@ namespace VegvisirCompass
         /// <summary>
         /// Whether any player is close enough that vanilla would have this camp loaded.
         ///
-        /// Mirrors ZoneSystem.CreateGhostZones rather than measuring metres, so "vanilla
-        /// distance" stays whatever vanilla says it is. Proximity comes from the peers
-        /// and not from Player.GetAllPlayers: a dedicated server only ever loads zones
-        /// around its own reference position, so no Player object exists for a remote
-        /// client and that list is empty there.
+        /// The reach is asked of the game rather than reconstructed. ZNetScene.InActiveArea
+        /// is the same test vanilla uses to decide what it instantiates, and since 1.0 the
+        /// answer depends on a server-synced, player-configurable SimulationDistance whose
+        /// shape is not a simple square of zones - at near distance 2 it clips the corners
+        /// to a 1.75-zone radius. Any arithmetic of our own would be a second, drifting
+        /// copy of that.
+        ///
+        /// Proximity comes from the peers and not from Player.GetAllPlayers: a dedicated
+        /// server only ever loads zones around its own reference position, so no Player
+        /// object exists for a remote client and that list is empty there.
         /// </summary>
-        private static bool IsWithinVanillaRange(ZoneSystem zones, Vector3 position)
+        private static bool IsWithinVanillaRange(Vector3 position)
         {
-            if (ZNet.instance == null) return false;
+            if (ZNet.instance == null || ZoneSystem.instance == null) return false;
 
-            Vector2i campZone = ZoneSystem.GetZone(position);
-            int reach = zones.m_activeArea + zones.m_activeDistantArea;
-
-            if (InReach(ZoneSystem.GetZone(ZNet.instance.GetReferencePosition()), campZone, reach)) return true;
+            if (ZNetScene.InActiveArea(position, ZNet.instance.GetReferencePosition())) return true;
 
             foreach (ZNetPeer peer in ZNet.instance.GetPeers())
             {
                 if (peer == null) continue;
-                if (InReach(ZoneSystem.GetZone(peer.GetRefPos()), campZone, reach)) return true;
+                if (ZNetScene.InActiveArea(position, peer.GetRefPos())) return true;
             }
             return false;
-        }
-
-        private static bool InReach(Vector2i playerZone, Vector2i campZone, int reach)
-        {
-            return Mathf.Abs(playerZone.x - campZone.x) <= reach
-                && Mathf.Abs(playerZone.y - campZone.y) <= reach;
         }
 
         // --- Traders ----------------------------------------------------------
@@ -340,7 +336,7 @@ namespace VegvisirCompass
             ZDOMan.instance.DestroyZDO(zdo);
         }
 
-        private static bool SpawnTrader(MerchantDef def, Vector2i zoneId, Vector3 campPosition)
+        private static bool SpawnTrader(MerchantDef def, Vector2s zoneId, Vector3 campPosition)
         {
             if (ZNetScene.instance == null) return false;
 
@@ -362,19 +358,19 @@ namespace VegvisirCompass
             return true;
         }
 
-        private static void Remember(MerchantDef def, Vector2i zoneId, Vector3 position, Quaternion rotation)
+        private static void Remember(MerchantDef def, Vector2s zoneId, Vector3 position, Quaternion rotation)
         {
-            if (!_lastSeen.TryGetValue(def.LocationName, out Dictionary<Vector2i, Pose> byZone))
+            if (!_lastSeen.TryGetValue(def.LocationName, out Dictionary<Vector2s, Pose> byZone))
             {
-                byZone = new Dictionary<Vector2i, Pose>();
+                byZone = new Dictionary<Vector2s, Pose>();
                 _lastSeen[def.LocationName] = byZone;
             }
             byZone[zoneId] = new Pose(position, rotation);
         }
 
-        private static Pose Recall(MerchantDef def, Vector2i zoneId, Vector3 campPosition)
+        private static Pose Recall(MerchantDef def, Vector2s zoneId, Vector3 campPosition)
         {
-            if (_lastSeen.TryGetValue(def.LocationName, out Dictionary<Vector2i, Pose> byZone)
+            if (_lastSeen.TryGetValue(def.LocationName, out Dictionary<Vector2s, Pose> byZone)
                 && byZone.TryGetValue(zoneId, out Pose pose))
             {
                 return pose;
@@ -387,7 +383,7 @@ namespace VegvisirCompass
         /// <summary>Positions of every camp vanilla has actually built for this merchant.</summary>
         internal static void CollectPlacedCamps(ZoneSystem zones, MerchantDef def, List<Vector3> into)
         {
-            foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> pair in zones.m_locationInstances)
+            foreach (KeyValuePair<Vector2s, ZoneSystem.LocationInstance> pair in zones.m_locationInstances)
             {
                 if (!pair.Value.m_placed) continue;
                 if (PrefabName(pair.Value) != def.LocationName) continue;
