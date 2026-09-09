@@ -37,7 +37,7 @@ mod does not have it yet.
 | CraftableSpawners | `docs/design_decisions.md` |
 | MushroomSync | `docs/DESIGN.md` |
 | Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md` |
-| haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md` |
+| haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md`, `docs/placeable-item.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | none yet |
 | vegvisir-compass | `docs/CONTEXT.md`; the user-facing design lives in the README's "How it works" |

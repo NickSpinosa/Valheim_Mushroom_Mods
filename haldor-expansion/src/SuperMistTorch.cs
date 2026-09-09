@@ -9,7 +9,13 @@ namespace HaldorExpansion
     ///
     /// Placement: the prefab is both the inventory item (ObjectDB / trader) and the
     /// hammer piece. Its recipe costs one of itself, so buying from Haldor is what
-    /// supplies the material the hammer consumes when you place it.
+    /// supplies the material the hammer consumes when you place it. That is not a trick -
+    /// it is how every vanilla food and mead is built, and the game drives the handover
+    /// itself: Player.PlacePiece calls ItemDrop.MakePiece() on what it just placed.
+    ///
+    /// The clone source supplies only the piece half. <c>piece_groundtorch_mist</c> is a
+    /// pure build piece and has no ItemDrop, so the item half is added here - see
+    /// <c>docs/placeable-item.md</c>.
     /// </summary>
     internal static class SuperMistTorch
     {
@@ -22,6 +28,20 @@ namespace HaldorExpansion
 
         /// <summary>Vanilla Wisp Torch piece. Not in ObjectDB — resolve from ZNetScene.</summary>
         private const string CloneSourcePiece = "piece_groundtorch_mist";
+
+        /// <summary>
+        /// Vanilla item the torch's ItemData is copied from. Only its shape is wanted -
+        /// every field is either overwritten below or is a sane default Unity authored -
+        /// so the one requirement is that it always exists. Wood does: EnsureRegistered
+        /// already treats its absence as "this is the main-menu ObjectDB, come back later".
+        /// </summary>
+        private const string ItemDataTemplate = "Wood";
+
+        /// <summary>How many fit in an inventory slot. A judgment call, not a design
+        /// requirement: the trade row sells one at a time either way.</summary>
+        private const int MaxStackSize = 10;
+
+        private const float ItemWeight = 10f;
 
         private const float VisualScale = 2f;
 
@@ -207,20 +227,20 @@ namespace HaldorExpansion
             clone.name = PrefabName;
             clone.transform.localScale = source.transform.localScale * VisualScale;
 
-            ItemDrop drop = clone.GetComponent<ItemDrop>();
-            if (drop == null)
-            {
-                Plugin.Log.LogError(
-                    "Cannot build " + PrefabName + ": '" + CloneSourcePiece + "' has no ItemDrop.");
-                Object.Destroy(clone);
-                return null;
-            }
-
             Piece piece = clone.GetComponent<Piece>();
             if (piece == null)
             {
                 Plugin.Log.LogError(
                     "Cannot build " + PrefabName + ": '" + CloneSourcePiece + "' has no Piece.");
+                Object.Destroy(clone);
+                return null;
+            }
+
+            // The source is a pure build piece and carries no ItemDrop, so the item half
+            // is added here. See docs/placeable-item.md for why one prefab is both.
+            ItemDrop drop = clone.GetComponent<ItemDrop>() ?? AddItemHalf(clone, piece);
+            if (drop == null)
+            {
                 Object.Destroy(clone);
                 return null;
             }
@@ -254,6 +274,63 @@ namespace HaldorExpansion
                 "Built " + PrefabName + " from " + CloneSourcePiece
                 + " (scale x" + VisualScale + ", demist " + WorldDemistRadius + " m).");
             return clone;
+        }
+
+        /// <summary>
+        /// Gives the piece clone its item half.
+        ///
+        /// Returns null while ObjectDB has nothing to copy from, which is an ordering
+        /// state rather than a failure - a later registration pass builds the prefab.
+        /// </summary>
+        private static ItemDrop AddItemHalf(GameObject clone, Piece piece)
+        {
+            ObjectDB odb = ObjectDB.instance;
+            GameObject template = odb != null ? odb.GetItemPrefab(ItemDataTemplate) : null;
+            if (template == null)
+            {
+                // Not an error: the main-menu ObjectDB has no Wood either, and this runs
+                // from ZNetScene.Awake, which can land before ObjectDB is populated. The
+                // Game.Start backstop retries. Debug rather than silence so a build that
+                // never happens can still be traced to the reason.
+                Plugin.Log.LogDebug(
+                    "Deferring " + PrefabName + " build: ObjectDB has no '"
+                    + ItemDataTemplate + "' to copy item data from yet.");
+                return null;
+            }
+
+            if (template.GetComponent<ItemDrop>() == null)
+            {
+                Plugin.Log.LogError(
+                    "Cannot build " + PrefabName + ": the '" + ItemDataTemplate
+                    + "' prefab has no ItemDrop to copy item data from.");
+                return null;
+            }
+
+            // Instantiate is what makes the copy safe to edit: ItemData and SharedData are
+            // plain [Serializable] classes, so Unity deep-copies them, and the scratch
+            // object can be thrown away while the data lives on. Building a SharedData with
+            // `new` is the trap docs/trade-item-1.0.7.md describes from the other side -
+            // Unity authors every array and string on a serialized class non-null, and C#
+            // does not, so a hand-built one throws somewhere far from here.
+            GameObject scratch = Object.Instantiate(template, _prefabContainer.transform);
+            ItemDrop.ItemData data = scratch.GetComponent<ItemDrop>().m_itemData;
+            Object.Destroy(scratch);
+
+            ItemDrop drop = clone.AddComponent<ItemDrop>();
+            drop.m_itemData = data;
+
+            ItemDrop.ItemData.SharedData shared = data.m_shared;
+            shared.m_itemType = ItemDrop.ItemData.ItemType.Material;
+            shared.m_maxStackSize = MaxStackSize;
+            shared.m_weight = ItemWeight;
+
+            // ItemData.GetIcon() indexes m_icons[m_variant] with no length check, so an
+            // empty array is a throw in the shop list rather than a missing picture. The
+            // piece's own hammer icon is a picture of this torch, which is exactly what the
+            // shop row and the inventory slot want; the template's icon is the fallback.
+            if (piece.m_icon != null) shared.m_icons = new[] { piece.m_icon };
+
+            return drop;
         }
 
         private static void ConfigureDemisterRadius(GameObject clone)
