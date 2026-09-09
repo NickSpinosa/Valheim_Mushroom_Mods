@@ -56,3 +56,4 @@
 - Build: `dotnet build -c Release`. Also builds MushroomSync, which this mod references and cannot load without. ILRepack no longer merges anything — `ILRepack.targets` records that ServerSync was removed.
 - Output: `bin/Release/CraftableSpawners.dll` **and** `MushroomSync/bin/Release/MushroomSync.dll` → copy both to `BepInEx/plugins/`, or use the release's `MushroomMods-plugins.zip`
 - Clone prefab names: `CS_BonePileSpawner`, `CS_GreydwarfNest`, `CS_DraugrPile`, `CS_FirePillar`, `CS_TarBonePile`
+- Valheim 1.0 replaced the category grid with a tag-driven build UI. What that means for the pieces this mod adds — and which Harmony targets were re-checked against 1.0.7 — is in [valheim-1.0-buildui.md](valheim-1.0-buildui.md).
