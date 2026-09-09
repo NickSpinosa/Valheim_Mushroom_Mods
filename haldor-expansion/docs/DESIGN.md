@@ -56,11 +56,21 @@ no Jötunn.
 | Default cost | 100 coins |
 | Default gate | Queen (`defeated_queen`) |
 
+| Item weight / max stack | 10 / 10 (judgment calls, not requirements) |
+
 **How placement works.** The same prefab is the inventory item Haldor sells *and* the
 hammer piece. Its `Piece.m_resources` costs one of itself, so buying from Haldor is
 what stocks the material the hammer consumes. Hammer-remove refunds the item
 (`m_recover = true`). The piece is added to the Hammer Misc table and taught to every
 player on spawn so a purchase is immediately placeable.
+
+That shape is vanilla, not a trick: all 120 food and mead prefabs are built the same way,
+and `Player.PlacePiece` calls `ItemDrop.MakePiece()` on what it placed. **The clone source
+supplies only the piece half** — `piece_groundtorch_mist` is a pure build piece with no
+`ItemDrop`, so the item half is added at build time from a copy of a vanilla item's
+`ItemData`. Getting that wrong is what made the torch unbuildable on the first 1.0.7 run
+(issue #24); see [placeable-item.md](placeable-item.md) for the mechanism, why no
+`Rigidbody` is added, and how the prefab was read without launching the game.
 
 **Demist radius vs scale.** `Demister` clears mist through a `ParticleSystemForceField`
 on the same hierarchy; `endRange` is in the force field's *local* space. Scaling the
