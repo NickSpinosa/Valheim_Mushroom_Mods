@@ -82,6 +82,10 @@ internal static class SpawnerSetup
         piece.m_name = def.DisplayName;
         piece.m_description = def.Description;
         piece.m_category = Piece.PieceCategory.Misc;
+        // 1.0's build UI opens on the "by usage" tab, which lists only pieces carrying the
+        // selected usage flag. UsageTagFlags has no zero member, so a piece left at the
+        // default 0 matches no tag and appears under "All" and nowhere else.
+        piece.m_usage = Piece.UsageTagFlags.Misc;
         piece.m_craftingStation = null;
         piece.m_groundOnly = true;
         piece.m_groundPiece = true;
