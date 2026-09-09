@@ -8,7 +8,10 @@ Other docs here: [spawn-priority.md](spawn-priority.md) for the vanilla
 save layout means for the Seed Reroll — read that one before touching
 `WorldBootstrap.HandleInfeasibleSeed` or `WorldDeleteHelper`, and
 [valheim-1.0-platform-id.md](valheim-1.0-platform-id.md) for how the local
-Platform User ID is found on 1.0 and the hosting-client deadlock that shaped it.
+Platform User ID is found on 1.0 and the hosting-client deadlock that shaped it,
+and [valheim-1.0-terrainop.md](valheim-1.0-terrainop.md) for why the portal pad
+is flattened through `TerrainComp` instead of a `TerrainOp` — read that before
+changing `PortalTerrainLeveler`.
 
 ## Language
 
