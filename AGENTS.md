@@ -15,6 +15,12 @@ Both workflows build through the same composite action,
 [`.github/actions/build-mods`](.github/actions/build-mods/action.yml) — change
 how the mods are built there, not in a workflow.
 
+**Working on any of the Valheim 1.0.7 bug tickets (GitHub issues #5–#19)** —
+read [docs/valheim-1.0-dependency-graph.md](docs/valheim-1.0-dependency-graph.md)
+first. It says which tickets block which, what can run in parallel, and why the
+CI cache bump has to land before anything else. Temporary: this line and that
+file go away when #19 closes.
+
 **Working inside a mod directory** — read that mod's own docs before you touch
 its code, and record what you learn there when you are done. The material that
 earns a place: a Valheim or BepInEx API that behaves differently than its name
