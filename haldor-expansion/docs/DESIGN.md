@@ -105,6 +105,15 @@ HornOfCalling / vegvisir-compass; see those mods' docs for the full failure mode
   dependency. Same package HornOfCalling / vegvisir-compass already use.
 - **Prefab IDs resolved at runtime** from `ObjectDB.instance`, logging loudly on a miss.
   Super Mist Torch is registered into that DB before the trader is usable.
+- **Boss key spellings come from the `GlobalKeys` enum, not from the boss name.**
+  Yagluth's key is `defeated_goblinking`; the table shipped `defeated_goblin` from the
+  start (fixed 2026-09-09, #11). The bug was invisible because `IsUnlocked` fails
+  closed: an unknown key just reads false, so a Yagluth-gated row silently never
+  appeared rather than erroring. Elder is `defeated_gdking` and Moder is
+  `defeated_dragon` — the same trap, already spelled right. Decompile the enum
+  (`ilspycmd -t GlobalKeys assembly_valheim.dll`) or use `listkeys` in game before
+  adding a gate; do not infer the string. Combat Adjustments keeps the same list in
+  `FeastUnlocks.cs` — if one changes, check the other.
 - **BepInEx config per added item** (`Enabled`, `Cost` in coins per unit, and
   `UnlockBoss`). Defaults: wood/stone = Elder, grausten/blackwood/Super Mist Torch =
   Queen, surtling core = Bonemass. Stack size stays in C# — that is a design invariant,

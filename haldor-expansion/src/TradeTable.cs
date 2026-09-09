@@ -22,8 +22,9 @@ namespace HaldorExpansion
     {
         /// <summary>
         /// ZoneSystem global key for <paramref name="boss"/>, or null if ungated.
-        /// Elder/Bonemass/Eikthyr/Moder/Yagluth spellings are string literals in
-        /// assembly_valheim.dll. Queen and Fader are data-driven; diagnostics dumps
+        /// Elder/Bonemass/Eikthyr/Moder/Yagluth spellings are members of the
+        /// GlobalKeys enum in assembly_valheim.dll -- Yagluth is defeated_goblinking,
+        /// not defeated_goblin. Queen and Fader are data-driven; diagnostics dumps
         /// the live key list so a wrong spelling fails closed (item never appears).
         /// </summary>
         public static string Get(UnlockBoss boss)
@@ -34,7 +35,7 @@ namespace HaldorExpansion
                 case UnlockBoss.Elder: return "defeated_gdking";
                 case UnlockBoss.Bonemass: return "defeated_bonemass";
                 case UnlockBoss.Moder: return "defeated_dragon";
-                case UnlockBoss.Yagluth: return "defeated_goblin";
+                case UnlockBoss.Yagluth: return "defeated_goblinking";
                 case UnlockBoss.Queen: return "defeated_queen";
                 case UnlockBoss.Fader: return "defeated_fader";
                 default: return null;
