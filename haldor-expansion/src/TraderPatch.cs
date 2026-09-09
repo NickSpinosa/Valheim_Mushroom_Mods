@@ -18,6 +18,14 @@ namespace HaldorExpansion
     [HarmonyPatch(typeof(Trader), nameof(Trader.GetAvailableItems))]
     internal static class TraderGetAvailableItemsPatch
     {
+        /// <summary>
+        /// Shared fallback for <see cref="Trader.TradeItem.m_buyPlayerEffects"/> when the trader
+        /// has no vanilla row to copy from. One instance for every row we ever add: EffectList.Create
+        /// only reads m_effectPrefabs, so sharing is safe, and a default-constructed EffectList
+        /// already has an empty (never null) array.
+        /// </summary>
+        private static readonly EffectList NoBuyEffects = new EffectList();
+
         private static void Postfix(Trader __instance, List<Trader.TradeItem> __result)
         {
             if (__instance == null || __result == null) return;
@@ -27,6 +35,8 @@ namespace HaldorExpansion
             SuperMistTorch.RefreshFromConfig();
 
             if (PrefabName(__instance.gameObject) != TradeTable.HaldorPrefab) return;
+
+            var buyEffects = BuyEffectsFrom(__instance);
 
             foreach (var entry in TradeTable.Haldor)
             {
@@ -40,14 +50,55 @@ namespace HaldorExpansion
                     ? Plugin.Settings.GetPurchasePrice(entry)
                     : entry.Price;
 
+                // Every field StoreGui touches is filled in, including the ones 1.0.7 added.
+                // Unity's serializer hands vanilla rows non-null objects and empty strings;
+                // a row built in C# gets null for both, and StoreGui dereferences several of
+                // them unguarded. See docs/trade-item-1.0.7.md for which call sites and why.
                 __result.Add(new Trader.TradeItem
                 {
                     m_prefab = itemDrop,
                     m_stack = entry.Stack,
                     m_price = price,
                     m_requiredGlobalKey = "",
+
+                    m_buyPlayerEffects = buyEffects,
+                    m_levelUpEffect = false,
+                    m_name = entry.PrefabName,
+                    m_tooltip = "",
+                    m_buyKey = "",
+                    m_incrementKey = "",
                 });
             }
+        }
+
+        /// <summary>
+        /// The purchase effect our rows play, borrowed from a vanilla row on the same trader so a
+        /// bought stack of wood feels like a bought Megingjord. Picks the first ordinary item row --
+        /// prefab-backed and not a one-off player-key purchase -- that actually has effects, and
+        /// falls back to an empty list if the trader has none.
+        ///
+        /// The vanilla EffectList is shared by reference rather than copied: Create only reads it,
+        /// and a copy would silently stop tracking a row the game later re-authors.
+        ///
+        /// Recomputed per call rather than cached. GetAvailableItems runs a few times a frame while
+        /// the store is open, but a trader's m_items is a couple of dozen rows, and a cache keyed on
+        /// the trader would have to be invalidated when another mod rewrites the stock -- Combat
+        /// Adjustments already prefixes this same method.
+        /// </summary>
+        private static EffectList BuyEffectsFrom(Trader trader)
+        {
+            var items = trader.m_items;
+            if (items == null) return NoBuyEffects;
+
+            foreach (var item in items)
+            {
+                if (item == null || item.m_prefab == null) continue;
+                if (!string.IsNullOrEmpty(item.m_buyKey)) continue;
+                if (item.m_buyPlayerEffects == null || !item.m_buyPlayerEffects.HasEffects()) continue;
+                return item.m_buyPlayerEffects;
+            }
+
+            return NoBuyEffects;
         }
 
         private static bool IsUnlocked(TradeEntry entry)
