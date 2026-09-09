@@ -10,35 +10,21 @@ namespace SeparateSpawns
         private static bool _loggedPlatformManagerFailure;
         private static bool _loggedPlayerListFailure;
         private static bool _loggedHostNameFailure;
+        private static bool _loggedIdSource;
 
         /// <summary>
         /// Dedicated/headless servers have no local Steam user; roster matching uses peer host names instead.
+        ///
+        /// Decided by the graphics device, which is what the game itself uses to tell a
+        /// headless process from one with a local player (see ZNet.UpdatePlayerList).
+        /// It must not depend on Player.m_localPlayer: a client hosting its own world is a
+        /// server with no local player until it spawns, and the spawn itself waits on this
+        /// id, so keying on the player deadlocks the loading screen. ZNet.IsDedicated() is
+        /// a stub that returns false in the client build, so it cannot decide either.
         /// </summary>
         public static bool IsHeadlessServerContext()
         {
-            if (ZNet.instance == null || !ZNet.instance.IsServer())
-            {
-                return false;
-            }
-
-            if (Player.m_localPlayer != null)
-            {
-                return false;
-            }
-
-            try
-            {
-                if (ZNet.instance.IsDedicated())
-                {
-                    return true;
-                }
-            }
-            catch
-            {
-                // Older or stripped builds may not expose IsDedicated reliably.
-            }
-
-            return true;
+            return SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null;
         }
 
         public static string GetLocalPlatformUserId()
@@ -51,29 +37,54 @@ namespace SeparateSpawns
             var fromPlatform = TryGetPlatformManagerUserId();
             if (!string.IsNullOrEmpty(fromPlatform))
             {
-                return fromPlatform;
+                return Resolved("PlatformManager", fromPlatform);
             }
 
             var fromPlayerList = TryGetLocalUserIdFromPlayerList();
             if (!string.IsNullOrEmpty(fromPlayerList))
             {
-                return fromPlayerList;
+                return Resolved("player list", fromPlayerList);
             }
 
             var fromSteam = TryGetSteamUserId();
             if (!string.IsNullOrEmpty(fromSteam))
             {
-                return fromSteam;
+                return Resolved("Steamworks", fromSteam);
             }
 
             var fromHostName = TryGetHostNameUserId();
             if (!string.IsNullOrEmpty(fromHostName))
             {
-                return fromHostName;
+                return Resolved("host name", fromHostName);
             }
 
             return string.Empty;
         }
+
+        /// <summary>
+        /// Logs once which lookup produced the id. When a game update silently breaks
+        /// the primary path, the fallback that carried it is the thing worth knowing.
+        /// </summary>
+        private static string Resolved(string source, string id)
+        {
+            if (!_loggedIdSource)
+            {
+                _loggedIdSource = true;
+                ModLog.Info($"Local platform user id {id} resolved via {source}.");
+            }
+
+            return id;
+        }
+
+        /// <summary>
+        /// The game's platform layer moved into the Splatform namespace in 1.0, so the
+        /// bare name no longer resolves; it is kept as a second attempt for older builds.
+        /// </summary>
+        private static readonly string[] PlatformManagerTypeNames =
+        {
+            "Splatform.PlatformManager",
+            "PlatformManager",
+        };
 
         private static string TryGetPlatformManagerUserId()
         {
@@ -89,7 +100,14 @@ namespace SeparateSpawns
                     Type platformManager = null;
                     try
                     {
-                        platformManager = assembly.GetType("PlatformManager");
+                        foreach (var typeName in PlatformManagerTypeNames)
+                        {
+                            platformManager = assembly.GetType(typeName);
+                            if (platformManager != null)
+                            {
+                                break;
+                            }
+                        }
                     }
                     catch
                     {

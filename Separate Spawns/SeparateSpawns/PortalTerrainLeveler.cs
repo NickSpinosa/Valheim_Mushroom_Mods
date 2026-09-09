@@ -75,7 +75,7 @@ namespace SeparateSpawns
                         ApplyLevelOperation(position, job.GroundY);
                     }
 
-                    heightmap.Poke(delayed: false);
+                    heightmap.Poke(0);
                     Heightmap.ForceGenerateAll();
                     PortalObstacleClearer.ClearAt(position);
 
@@ -194,7 +194,7 @@ namespace SeparateSpawns
                 return null;
             }
 
-            foreach (var zdo in ZDOMan.instance.GetPortals())
+            foreach (var zdo in ZDOMan.instance.GetPortalList())
             {
                 if (zdo.GetString(GroupPortalMarker.ZdoGroupKey) == groupName &&
                     zdo.GetBool(GroupPortalMarker.ZdoSpawnEndKey) == isSpawnEnd)

@@ -275,7 +275,7 @@ namespace SeparateSpawns
             for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
             {
                 var group = groups[groupIndex];
-                foreach (var zdo in ZDOMan.instance.GetPortals())
+                foreach (var zdo in ZDOMan.instance.GetPortalList())
                 {
                     if (zdo.GetString(GroupPortalMarker.ZdoGroupKey) != group)
                     {
@@ -348,7 +348,7 @@ namespace SeparateSpawns
 
             ZDO spawnZdo = null;
             ZDO stonesZdo = null;
-            foreach (var zdo in ZDOMan.instance.GetPortals())
+            foreach (var zdo in ZDOMan.instance.GetPortalList())
             {
                 if (zdo.GetString(GroupPortalMarker.ZdoGroupKey) != groupName)
                 {
@@ -526,7 +526,7 @@ namespace SeparateSpawns
 
             if (ZDOMan.instance != null)
             {
-                foreach (var zdo in ZDOMan.instance.GetPortals())
+                foreach (var zdo in ZDOMan.instance.GetPortalList())
                 {
                     if (zdo.GetString(GroupPortalMarker.ZdoGroupKey) != groupName)
                     {
@@ -739,7 +739,7 @@ namespace SeparateSpawns
                 return false;
             }
 
-            foreach (var zdo in ZDOMan.instance.GetPortals())
+            foreach (var zdo in ZDOMan.instance.GetPortalList())
             {
                 if (zdo.GetString(GroupPortalMarker.ZdoGroupKey) == groupName &&
                     zdo.GetBool(GroupPortalMarker.ZdoSpawnEndKey) == isSpawnEnd)
