@@ -113,9 +113,12 @@ From the design note, still open:
 - **10 stamina** per use — `m_attack.m_attackStamina`, currently `0`.
 - The **roar emote** instead of the inherited `emote_drink`.
 - The viking should **appear to hold nothing**.
-- Reaching **other players beyond the ZDO active area** (~64 m). Other players *do*
-  hear the blast today, out to 64 m — see [Range](#range) — but the design note's 200 m
-  is past what the zone grid delivers and needs a `ZRoutedRpc` broadcast.
+- Reaching **other players beyond the audible falloff** (64 m). Other players *do* hear
+  the blast today, out to 64 m — see [Range](#range) — but the design note asks for
+  200 m. Since Valheim 1.0.7 the zone grid delivers the blast further than the curve
+  carries it (128 m at the default simulation distance), so part of that gap is now a
+  curve-tuning change rather than networking work; the rest still needs a `ZRoutedRpc`
+  broadcast.
 - **Hold** left click to sustain the sound, release to stop. It is one-shot per click.
 
 ## Range
@@ -130,7 +133,7 @@ Two independent limits apply, and the smaller one wins:
 | Limit | Value | Set by |
 |---|---|---|
 | Audible falloff | 64 m | the custom rolloff curve in [`src/HornSound.cs`](src/HornSound.cs) |
-| ZDO replication | ~64 m guaranteed | `ZoneSystem.m_activeArea` (1) × `m_zoneSize` (64 m) |
+| ZDO replication | 64 m guaranteed, 128 m at the default setting | the listener's **simulation distance** |
 
 The falloff is a plateau curve, tuned in the `Falloff` table:
 
@@ -142,8 +145,17 @@ The falloff is a plateau curve, tuned in the `Falloff` table:
 | 35 – 45 m | 46% |
 | 45 – 64 m | 28% |
 
-Raising the audible range past ~64 m does nothing on its own: peers outside their active
-area never receive the object, so no volume setting reaches them.
+Replication is the listener's own **Simulation distance** graphics setting, clamped by
+the server's, not a fixed radius. Its lowest level (`0`) is the pre-1.0.7 one-ring
+square and reaches 64 m; the default level `2` reaches 128 m, and the levels above it
+further still. The falloff curve is tuned to 64 m because that is the floor — the only
+reach every listener is guaranteed to have.
+
+So raising the audible range past a listener's replication radius does nothing: they
+never receive the object, and no volume setting reaches them. Raising it *within* that
+radius would work, and since 1.0.7 there is room to — see
+[`docs/CONTEXT.md`](docs/CONTEXT.md) for the mechanism and why the constant was left at
+the floor.
 
 ## Local setup
 

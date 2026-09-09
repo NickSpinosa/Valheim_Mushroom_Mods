@@ -277,14 +277,71 @@ That gives two independent ceilings on range:
 | Ceiling | Value | Where it comes from |
 |---|---|---|
 | Audible falloff | whatever the `AudioSource` curve says | vanilla template: silent past 25 m |
-| ZDO replication | ~64 m guaranteed | `ZoneSystem.m_activeArea = 1`, `m_zoneSize = 64` |
+| ZDO replication | 64 m guaranteed, more per listener | the listener's simulation distance |
 
-`ZDOMan.FindSectorObjects(zone, m_activeArea, ...)` walks the peer's own zone plus one
-ring, so a non-distant ZDO reaches at least 64 m and at most ~135 m diagonally. **Raising
-the audio range past that does nothing** — the peer never receives the object. Going
-further needs `m_distant = true` (which only buys `m_activeDistantArea`, another ring) or
-an explicit `ZRoutedRpc` broadcast with each client playing the blast locally. Only the
-RPC makes the range a number you choose.
+**Raising the audio range past the replication ceiling does nothing** — the peer never
+receives the object, so no volume setting reaches it. The ceiling itself, though, stopped
+being a constant in 1.0.7.
+
+### Simulation distance replaced the active area
+
+Up to 0.221 the reach was two fields: `ZoneSystem.m_activeArea = 1` over `m_zoneSize = 64`,
+so `ZDOMan.FindSectorObjects(zone, m_activeArea, ...)` walked the peer's own zone plus one
+ring — a 3×3 square, the same for everybody.
+
+In 1.0.7 `m_activeArea` and `m_activeDistantArea` are **gone**. `FindSectorObjects` now
+takes a `SimulationDistance` struct, and the value is a *player setting*:
+
+```csharp
+// ZDOMan.CreateSyncList - what the server sends this peer
+FindSectorObjects(zone, peer.m_peer.m_simulationDistance, m_tempSectorObjects, m_tempToSyncDistant);
+
+// ZNetScene.CreateDestroyObjects - what this client instantiates
+ZDOMan.instance.FindSectorObjects(zone, ZNet.instance.GetSyncedSimulationDistance(), ...);
+```
+
+Both ends agree because both resolve to the same clamp: the client asks for its graphics
+setting, and `ZNet` stores `min(requested, the server's own)` — `GetSyncedSimulationDistance()`
+on the client, `ZNetPeer.m_simulationDistance` on the server. A player cannot raise their
+reach above what the server allows, and the server cannot force it up.
+
+`SimulationDistance.GetSimulationDistance(level)` maps the setting's `0..6` range
+(`GraphicsSettingInt.SimulationDistance.GetRange()`) onto near/far zone counts, and the
+`classic` flag decides the *shape* of the near set — a square when set, and a disc when
+not, because each ring zone is then gated on `ZoneSystem.ZonesWithinRadius`:
+
+| Level | `SimulationDistance` | Near zones | Guaranteed reach |
+|---|---|---|---|
+| 0 | `(1, 2, classic: true)` | 3×3 square | 64 m |
+| 1 | `(2, 2)` | 5×5 less its corners | ~90 m |
+| 2 (default) | `(2, 2, classic: true)` = `OriginalDistance` | 5×5 square | 128 m |
+| 3–6 | `(level, 2)` | disc of that radius | further |
+
+The guaranteed figure is the worst case within a zone, not the zone width: zone *n* spans
+`[64n-32, 64n+32)`, so a listener standing at its edge still has a full zone of grid in
+front of them. In the best case — listener at one corner of their zone, blast at the far
+corner of the diagonal neighbour — level 0 reaches ~181 m. Only the floor is worth tuning
+to, since it is the only reach every listener has.
+
+**64 m survived that change by coincidence, and it is the right coincidence.** Level 0 is
+`classic` with a near distance of 1, which is the old one-ring square exactly — so the
+number the curve was tuned to is now the floor of a range instead of a constant. What
+changed is that most listeners are further than that: at the default level 2 the blast
+reaches 128 m, and the curve goes quiet at 64.
+
+Deriving `MaxDistance` from `GetSyncedSimulationDistance()` is tempting and not wrong in
+principle — the curve is evaluated on the *listener's* machine, and it is the listener's
+own setting that decides what reaches them, so the two genuinely do line up. It was left
+alone because `Attach` builds the prefab once, while the setting can change at any point
+afterwards: the derived value would be a snapshot that quietly goes stale, for a range the
+horn does not currently use anyway.
+
+Going past the near set needs `m_distant = true`, which moves the blast into the far rings
+(out to `TotalSimulationDistance`, near + a fixed far of 2) — but `CreateSyncList` only
+appends distant ZDOs when the near list came back with fewer than 10 entries, so it is a
+best-effort tier, not a longer guarantee. The alternative is an explicit `ZRoutedRpc`
+broadcast with each client playing the blast locally. Only the RPC makes the range a
+number you choose.
 
 ### Two traps in the curve itself
 
