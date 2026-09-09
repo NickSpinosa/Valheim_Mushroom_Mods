@@ -4,6 +4,7 @@ using HarmonyLib;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace RandomYggdrasil
 {
@@ -21,10 +22,16 @@ namespace RandomYggdrasil
         private const string ConfigFileName = "RandomYggdrasil.cfg";
         private const int RotationNotGenerated = -1;
 
+        // The scene object the entire mod hangs on. Confirmed present and active in
+        // Valheim 1.0.7 under this exact name; see docs/yggdrasil-branch.md.
+        private const string BranchObjectName = "YggdrasilBranch";
+        private const string VanillaBranchPath = "_GameMain/_Environment/" + BranchObjectName;
+
         private readonly Harmony harmony = new Harmony(PluginId);
 
         private static ConfigFile modConfig;
         private static ConfigFile alternateConfig;
+        private static bool loggedMissingBranch;
         private static readonly Dictionary<string, ConfigEntry<int>> rotationEntries = new Dictionary<string, ConfigEntry<int>>();
 
         void Awake()
@@ -261,6 +268,105 @@ namespace RandomYggdrasil
             return snapshot;
         }
 
+        /// <summary>
+        /// Locates the Yggdrasil branch, explaining itself once per process when it is
+        /// not there. Vanilla keeps it active at <see cref="VanillaBranchPath"/>, so a
+        /// null here means the object was renamed, moved out of the active scene, or
+        /// deactivated - and the mod would otherwise do nothing and say nothing.
+        /// </summary>
+        private static GameObject FindYggdrasilBranch()
+        {
+            GameObject branch = GameObject.Find(BranchObjectName);
+            if (branch == null)
+            {
+                LogMissingBranchOnce();
+            }
+
+            return branch;
+        }
+
+        private static void LogMissingBranchOnce()
+        {
+            if (loggedMissingBranch)
+            {
+                return;
+            }
+
+            loggedMissingBranch = true;
+
+            Scene scene = SceneManager.GetActiveScene();
+            string instanceKind = IsDedicatedServer() ? "dedicated server" : "client";
+
+            Debug.LogWarning(
+                $"RandomYggdrasil: no active GameObject named '{BranchObjectName}' in scene '{scene.name}' ({instanceKind}). "
+                + $"Valheim 1.0.7 keeps it at '{VanillaBranchPath}'. Yggdrasil stays at its default orientation "
+                + "until the name below is corrected in the source.");
+
+            Debug.LogWarning($"RandomYggdrasil: scene roots: {string.Join(", ", GetRootObjectNames(scene))}");
+
+            List<string> candidates = FindRenameCandidates(scene);
+            Debug.LogWarning(candidates.Count == 0
+                ? "RandomYggdrasil: no object in this scene has 'ygg' in its name, so the branch was removed rather than renamed."
+                : $"RandomYggdrasil: scene objects with 'ygg' in the name - a rename shows up here: {string.Join(", ", candidates)}");
+        }
+
+        private static string[] GetRootObjectNames(Scene scene)
+        {
+            GameObject[] roots = scene.GetRootGameObjects();
+            string[] names = new string[roots.Length];
+            for (int i = 0; i < roots.Length; i++)
+            {
+                names[i] = roots[i].name;
+            }
+
+            return names;
+        }
+
+        /// <summary>
+        /// Scene objects whose name looks Yggdrasil-ish, inactive ones included - the
+        /// point is to name the replacement, and <see cref="GameObject.Find"/> skips
+        /// anything inactive. Restricted to the active scene so the several thousand
+        /// loaded prefab assets stay out of the log.
+        /// </summary>
+        private static List<string> FindRenameCandidates(Scene scene)
+        {
+            const int limit = 20;
+            List<string> found = new List<string>();
+
+            foreach (GameObject candidate in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (found.Count >= limit)
+                {
+                    break;
+                }
+
+                if (!candidate.scene.IsValid() || candidate.scene != scene)
+                {
+                    continue;
+                }
+
+                if (candidate.name.IndexOf("ygg", System.StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                found.Add(GetHierarchyPath(candidate) + (candidate.activeInHierarchy ? "" : " (inactive)"));
+            }
+
+            return found;
+        }
+
+        private static string GetHierarchyPath(GameObject gameObject)
+        {
+            string path = gameObject.name;
+            for (Transform parent = gameObject.transform.parent; parent != null; parent = parent.parent)
+            {
+                path = parent.name + "/" + path;
+            }
+
+            return path;
+        }
+
         internal static void TryApplyStoredRotation()
         {
             string worldIdentifier = GetWorldIdentifier();
@@ -275,7 +381,7 @@ namespace RandomYggdrasil
                 return;
             }
 
-            GameObject gameObject = GameObject.Find("YggdrasilBranch");
+            GameObject gameObject = FindYggdrasilBranch();
             if (gameObject == null)
             {
                 return;
@@ -302,7 +408,7 @@ namespace RandomYggdrasil
                     degrees = GetOrCreateRotation(worldIdentifier);
                 }
 
-                GameObject gameObject = GameObject.Find("YggdrasilBranch");
+                GameObject gameObject = FindYggdrasilBranch();
                 if (gameObject == null)
                 {
                     if (worldIdentifier != null && degrees >= 0)
