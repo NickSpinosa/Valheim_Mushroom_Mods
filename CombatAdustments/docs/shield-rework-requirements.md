@@ -245,6 +245,15 @@ Consequences:
 - Durability: adjust `m_shared.m_maxDurability` (and per-quality durability gain)
   for tower/round shields.
 - Block armor: apply +5% (round up) to tower shield shared block armor values.
+- Console commands: register from a `Terminal.InitTerminal` postfix, and keep the
+  registration inside a `try`/`catch`. `Terminal.ConsoleCommand`'s constructor
+  gains optional parameters between game versions (1.0.7 inserted
+  `hideBehindDevCommands` before `optionsFetcher`), and C# bakes optional-argument
+  defaults into the **caller**, so a DLL built against an older game throws
+  `MissingMethodException` at construction even though the source still compiles.
+  Unhandled, that exception aborts the whole `InitTerminal` postfix chain, which
+  is how a stale Shield Rework DLL silently took Separate Spawns' `separatespawns`
+  command down with it (issue #9).
 
 ## 4.1 Multiplayer config
 

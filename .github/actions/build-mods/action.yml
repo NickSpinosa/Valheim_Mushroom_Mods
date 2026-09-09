@@ -16,7 +16,7 @@ inputs:
       Bump to discard the cached reference assemblies and fetch them again, e.g.
       after a Valheim update the mods need to build against.
     required: false
-    default: v1
+    default: v2
   dotnet-version:
     required: false
     default: '9.0.x'
