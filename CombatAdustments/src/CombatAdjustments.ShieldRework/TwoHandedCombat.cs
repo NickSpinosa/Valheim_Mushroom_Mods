@@ -81,6 +81,11 @@ internal static class TwoHandedCombat
         damages.m_lightning = AddRoundedPercentBonus(damages.m_lightning);
         damages.m_poison = AddRoundedPercentBonus(damages.m_poison);
         damages.m_spirit = AddRoundedPercentBonus(damages.m_spirit);
+        // 1.0 added m_nonPlayer, a damage channel that only applies to non-player
+        // targets. Player weapons carry 0 there today, so this line changes nothing
+        // now; it is here so the bonus stays "every channel" rather than "the eleven
+        // channels that existed in 0.221" the first time a weapon does use it.
+        damages.m_nonPlayer = AddRoundedPercentBonus(damages.m_nonPlayer);
     }
 
     private static float AddRoundedPercentBonus(float value) =>

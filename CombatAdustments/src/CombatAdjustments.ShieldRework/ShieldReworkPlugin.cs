@@ -15,7 +15,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.7.1";
+    public const string PluginVersion = "0.8.0";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -26,8 +26,14 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
     /// <summary>
     /// Bump when designed StaggerGrants table changes so existing .cfg values are rewritten to seeds.
+    /// v3: Deep North (Gold) shields added to the designed table. Without a bump, a world
+    /// that already started on 1.0 has ShieldGoldTower in its .cfg at whatever the
+    /// block-armor fallback happened to produce on the pass that first bound it, and
+    /// would never pick up the seed. (The fallback and the designed seed agree at 80 on
+    /// a first ObjectDB pass; they do not on a later one, where the fallback reads block
+    /// armor this mod has already raised by 5%.)
     /// </summary>
-    public const int CurrentGrantTableVersion = 2;
+    public const int CurrentGrantTableVersion = 3;
 
     internal static ManualLogSource Log = null!;
     internal static ShieldReworkPlugin Instance = null!;
@@ -51,6 +57,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> SailorsFeastStaminaBonus = null!;
     internal static ConfigEntry<float> MistlandsFeastEitrBonus = null!;
     internal static ConfigEntry<float> AshlandsFeastEitrBonus = null!;
+    internal static ConfigEntry<float> DeepNorthFeastEitrBonus = null!;
+
+    internal static ConfigEntry<bool> DumpObjectDb = null!;
 
     internal static ConfigEntry<bool> EnableSailingWindCurve = null!;
     internal static ConfigEntry<float> SailingCalmForceFactor = null!;
@@ -121,6 +130,13 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             "Extra eitr added to Mushrooms Galore à la Mistlands (vanilla 33 → 40). Also receives HealthBonus / StaminaBonus.");
         AshlandsFeastEitrBonus = ModConfig.Bind("Feasts", "AshlandsEitrBonus", 12f,
             "Extra eitr added to Ashlands Gourmet Bowl (vanilla 38 → 50). Also receives HealthBonus / StaminaBonus.");
+        DeepNorthFeastEitrBonus = ModConfig.Bind("Feasts", "DeepNorthEitrBonus", 17f,
+            "Extra eitr added to the Deep North feast (vanilla 43 → 60). Also receives HealthBonus / StaminaBonus.");
+
+        DumpObjectDb = ModConfig.Bind("Diagnostics", "DumpObjectDb", false,
+            "Write every ObjectDB item prefab, its item type, shield and food stats, and the world's "
+            + "global keys to a text file next to this config, once, on the next world load. "
+            + "Also available from the console as 'cadump'. Local only — never synced from a host.");
 
         EnableSailingWindCurve = ModConfig.Bind("Sailing", "EnableWindCurve", true,
             "Replace vanilla linear wind→sail force with a two-segment curve (calm matches vanilla to 60%, storms ramp higher).");
@@ -156,6 +172,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             SailorsFeastStaminaBonus,
             MistlandsFeastEitrBonus,
             AshlandsFeastEitrBonus,
+            DeepNorthFeastEitrBonus,
             EnableSailingWindCurve,
             SailingCalmForceFactor,
             SailingKneeForceFactor,
@@ -166,10 +183,13 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             EnableUncapHealthScaling);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
-        // bookkeeping, and SyncConfigInMultiplayer is the opt-out itself - a client
-        // that switched syncing off must keep that answer.
+        // bookkeeping, SyncConfigInMultiplayer is the opt-out itself - a client
+        // that switched syncing off must keep that answer - and DumpObjectDb writes a
+        // file on whichever machine asked for it, so a host must not switch it on for
+        // everyone connected.
         Sync.Exclude(GrantTableVersion)
-            .Exclude(SyncConfigInMultiplayer);
+            .Exclude(SyncConfigInMultiplayer)
+            .Exclude(DumpObjectDb);
 
         // Feast bonuses are baked into ObjectDB items, so editing one locally has to
         // rebuild them. Rebroadcasting to clients is handled by WatchForChanges, and
@@ -182,6 +202,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         HookFeastConfigChange(SailorsFeastStaminaBonus);
         HookFeastConfigChange(MistlandsFeastEitrBonus);
         HookFeastConfigChange(AshlandsFeastEitrBonus);
+        HookFeastConfigChange(DeepNorthFeastEitrBonus);
 
         HookOceanWeatherConfigChange(EnableOceanStormChance);
         HookOceanWeatherConfigChange(OceanThunderStormChance);

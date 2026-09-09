@@ -45,8 +45,14 @@ and already-eaten feasts pick up the new numbers.
 | Sailor's Bounty | +15 | +15 | — |
 | Mistlands | +10 | +10 | +7 (33 → 40) |
 | Ashlands | +10 | +10 | +12 (38 → 50) |
+| Deep North | +10 | +10 | +17 (43 → 60) |
 
 Boss unlocks are **not** configurable.
+
+The Deep North eitr bonus started as an extrapolation and was confirmed against
+an in-game dump on 1.0.7 (vanilla 43). The dump's FOODS section prints each
+feast's vanilla values beside its current ones — see
+[`docs/feasts.md`](../../docs/feasts.md).
 
 ### Sailing
 
@@ -101,7 +107,12 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   / `AreaAdrenalinePerEnemy`
 - `Feasts.EnableStatBonuses` / `HealthBonus` / `StaminaBonus` /
   `SailorsHealthBonus` / `SailorsStaminaBonus` / `MistlandsEitrBonus` /
-  `AshlandsEitrBonus`. Unlock bosses are hardcoded.
+  `AshlandsEitrBonus` / `DeepNorthEitrBonus`. Unlock bosses are hardcoded.
+- `Diagnostics.DumpObjectDb` (default **false**) — write every ObjectDB item
+  prefab, its item type, shield and food stats, and the world's global keys to
+  `CombatAdjustments.ShieldRework.objectdb-dump.txt` beside this config, once, on
+  the next world load. `cadump` in the console does the same without a restart.
+  Local only: never sent to or accepted from a host.
 - `Sailing.EnableWindCurve` / `CalmForceFactor` / `KneeForceFactor` /
   `MaxForceFactor` / `CalmWindCeiling` — calm matches vanilla to 60%, then
   storms ramp to MaxForceFactor (see `docs/sailing.md`).
@@ -132,6 +143,7 @@ needs to be tuned for gameplay balance.
 | --- | --- |
 | `shieldstagger` / `sstagger` | Print stagger breakdown to the console |
 | `staggerhud` / `shud` | Toggle HUD text under the stagger bar (`on` / `off` optional). Keeps the bar visible while on. |
+| `cadump` | Write the ObjectDB / global-key diagnostics dump beside the mod config and print the path. |
 
 No `devcommands` required.
 
