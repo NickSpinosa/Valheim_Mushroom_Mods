@@ -11,7 +11,10 @@ save layout means for the Seed Reroll — read that one before touching
 Platform User ID is found on 1.0 and the hosting-client deadlock that shaped it,
 and [valheim-1.0-terrainop.md](valheim-1.0-terrainop.md) for why the portal pad
 is flattened through `TerrainComp` instead of a `TerrainOp` — read that before
-changing `PortalTerrainLeveler`.
+changing `PortalTerrainLeveler`, and
+[world-lifecycle.md](world-lifecycle.md) for why per-world state is cleared on
+`ZNet.OnDestroy` rather than plugin teardown — read that before adding any static
+that holds world-derived data.
 
 ## Language
 

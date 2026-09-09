@@ -36,7 +36,7 @@ mod does not have it yet.
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md`, `docs/sailing.md`, `docs/boss-hp-scaling.md`, `docs/valheim-1.0.md` |
 | CraftableSpawners | `docs/design_decisions.md`, `docs/valheim-1.0-buildui.md` |
 | MushroomSync | `docs/DESIGN.md` |
-| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md` |
+| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/world-lifecycle.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md` |
 | haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md`, `docs/placeable-item.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | `docs/yggdrasil-branch.md` |
