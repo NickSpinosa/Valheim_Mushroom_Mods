@@ -27,6 +27,11 @@
     with no sample landing on the rail. Check that after regenerating - and keep the
     gain, or the horn quietly loses 5 dB.
   -->
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="assets/viking.wav" LogicalName="HornOfCalling.viking.wav" />
   </ItemGroup>

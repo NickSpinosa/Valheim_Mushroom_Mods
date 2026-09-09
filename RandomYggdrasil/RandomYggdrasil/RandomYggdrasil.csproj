@@ -102,6 +102,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+    <Compile Include="..\..\Shared\PatchIsolation.cs">
+      <Link>PatchIsolation.cs</Link>
+    </Compile>
     <Compile Include="RandomYggdrasilMod.cs" />
     <Compile Include="RotationSync.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -2,6 +2,7 @@ using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using MushroomMods;
 using UnityEngine;
 
 namespace SeparateSpawns
@@ -30,9 +31,6 @@ namespace SeparateSpawns
             ConfigValues = ModConfig.Bind(_modConfigFile);
             LayoutCache = new WorldLayoutCache();
 
-            _harmony = new Harmony(PluginGuid);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
-
             Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
             Logger.LogInfo($"Config layout: {(ModPaths.UseDedicatedConfigLayout() ? "dedicated server" : "client")}");
             Logger.LogInfo($"Config file: {configPath}");
@@ -44,6 +42,15 @@ namespace SeparateSpawns
             StartCoroutine(InitializeRosterAuthority());
             StartCoroutine(LogLocalPlatformIdWhenReady());
             StartCoroutine(ClientSyncHelper.RunSyncRetry(this));
+
+            // Last, and per class. The roster and sync coroutines above have to start
+            // whatever the patches do. See Shared/PatchIsolation.cs.
+            _harmony = new Harmony(PluginGuid);
+            int skipped = PatchIsolation.PatchAllIsolated(_harmony, typeof(Plugin).Assembly, Logger);
+            if (skipped > 0)
+            {
+                Logger.LogWarning($"{skipped} patch class(es) skipped - see the errors above.");
+            }
         }
 
         internal static void SetRoster(GroupRoster roster)

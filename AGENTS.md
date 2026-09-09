@@ -55,6 +55,25 @@ The trap it exists to prevent: this was four copies of one implementation that
 drifted, so a fix landed in one mod and not the others. Change it in
 MushroomSync, not in a mod.
 
+## Shared source (`Shared/`)
+
+`Shared/` is not a mod and has no project of its own. It holds source files that
+every plugin compiles into itself through a linked `<Compile Include>`, for
+things all seven need identically but that do not justify a runtime dependency
+on MushroomSync — the three mods that do not already reference it stay
+standalone DLLs.
+
+Right now that is one file, `PatchIsolation.cs`. **Every plugin applies its
+Harmony patches through `PatchIsolation.PatchAllIsolated`, last in `Awake`, not
+through `Harmony.PatchAll`.** `PatchAll` lets the first failing patch class
+escape, and that exception unwinds the rest of `Awake` — in 1.0.7 one changed
+`GetTooltip` signature took Combat Adjustments' console commands and config sync
+with it (issues #5, #18). Ordering is the other half: config binding, sync
+registration and coroutines go *above* the patch call.
+
+Edit the file in `Shared/`; adding another plugin means adding the same
+`<Compile Include>` line to its project. There is deliberately no second copy.
+
 ## Building
 
 Most mods build with a bare `dotnet build -c Release`, resolving the game path

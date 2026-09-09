@@ -28,6 +28,11 @@
            Text="assembly_valheim.dll not found under '$(ValheimManaged)'. Set ValheimDir to your Valheim install directory." />
   </Target>
 
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>$(BepInExCore)\0Harmony.dll</HintPath>

@@ -2,6 +2,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomMods;
 
 namespace HornOfCalling
 {
@@ -47,9 +48,13 @@ namespace HornOfCalling
             // live and lands here as well when OK is pressed.
             BlastVolume.SettingChanged += (sender, args) => HornSound.ApplyVolume();
 
+            // Per class, so one moved patch target cannot unwind the rest of Awake.
+            // See Shared/PatchIsolation.cs.
             _harmony = new Harmony(Guid);
-            _harmony.PatchAll();
-            Log.LogInfo(Name + " " + Version + " loaded.");
+            int skipped = PatchIsolation.PatchAllIsolated(_harmony, typeof(Plugin).Assembly, Log);
+
+            Log.LogInfo(Name + " " + Version + " loaded."
+                + (skipped > 0 ? " " + skipped + " patch class(es) skipped - see the errors above." : ""));
         }
 
         private void OnDestroy()

@@ -11,6 +11,11 @@
     <ValheimDir Condition="'$(ValheimDir)' == ''">F:\Steam\steamapps\common\Valheim</ValheimDir>
   </PropertyGroup>
 
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\..\..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="BepInEx">
       <HintPath>$(ValheimDir)\BepInEx\core\BepInEx.dll</HintPath>

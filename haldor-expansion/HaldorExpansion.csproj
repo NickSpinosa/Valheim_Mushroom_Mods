@@ -16,6 +16,11 @@
     <DebugType>portable</DebugType>
   </PropertyGroup>
 
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Include="src\**\*.cs" />
   </ItemGroup>

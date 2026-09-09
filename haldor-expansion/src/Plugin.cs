@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomMods;
 using MushroomSync;
 
 namespace HaldorExpansion
@@ -48,10 +49,13 @@ namespace HaldorExpansion
                 .WatchForChanges(Config)
                 .Start();
 
+            // Last, and per class, so a moved patch target cannot unwind the sync
+            // registration above. See Shared/PatchIsolation.cs.
             _harmony = new Harmony(PluginId);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
+            int skipped = PatchIsolation.PatchAllIsolated(_harmony, typeof(Plugin).Assembly, Log);
 
-            Log.LogInfo(PluginName + " " + PluginVersion + " loaded.");
+            Log.LogInfo(PluginName + " " + PluginVersion + " loaded."
+                + (skipped > 0 ? " " + skipped + " patch class(es) skipped - see the errors above." : ""));
             Log.LogInfo("Trade table hash: " + TradeTable.Hash
                         + " -- on a server, clients should match this after config sync.");
         }
