@@ -110,6 +110,10 @@ namespace VegvisirCompass
     /// The original is skipped entirely, so Game.DiscoverClosestLocation never runs
     /// and no map pin is ever written. Instead the player is granted a compass, via
     /// the server so the cooldown can be enforced for everyone.
+    ///
+    /// Skipping vanilla means inheriting everything else it did. Revealing the map is
+    /// not all a stone does: it can also grant progression keys, which have nothing to
+    /// do with the map and must still happen. Those are replicated below.
     /// </summary>
     [HarmonyPatch(typeof(Vegvisir), nameof(Vegvisir.Interact))]
     internal static class VegvisirInteractPatch
@@ -134,6 +138,12 @@ namespace VegvisirCompass
                 __result = false;
                 return false;
             }
+
+            // Before any compass work, and so on every path out of here. Vanilla sets
+            // these once the hold check passes, regardless of what the locations do, so
+            // a player who already carries every compass from this stone still gets the
+            // key.
+            ApplyStoneKeys(__instance, player);
 
             // The carry rule filters rather than refuses. A stone naming several places
             // grants one compass each, so already holding one of them must drop just
@@ -180,6 +190,37 @@ namespace VegvisirCompass
             CompassRpc.RequestCompass(__instance.transform.position, wanted, player);
             __result = true;
             return false;
+        }
+
+        /// <summary>
+        /// Grants the progression keys a stone carries, mirroring the tail of vanilla
+        /// Vegvisir.Interact.
+        ///
+        /// Both are idempotent, so replaying them on a re-read costs nothing.
+        /// SetGlobalKey routes to the server and lands in the world save;
+        /// AddUniqueKey is per-character. Wrapped because a stone's keys must never
+        /// be able to cost the player their compass.
+        /// </summary>
+        private static void ApplyStoneKeys(Vegvisir stone, Player player)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(stone.m_setsGlobalKey) && ZoneSystem.instance != null)
+                {
+                    ZoneSystem.instance.SetGlobalKey(stone.m_setsGlobalKey);
+                    Plugin.Debug($"Stone set the global key '{stone.m_setsGlobalKey}'.");
+                }
+
+                if (!string.IsNullOrEmpty(stone.m_setsPlayerKey))
+                {
+                    player.AddUniqueKey(stone.m_setsPlayerKey);
+                    Plugin.Debug($"Stone set the player key '{stone.m_setsPlayerKey}'.");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogWarning("Could not apply the stone's keys: " + e.Message);
+            }
         }
     }
 

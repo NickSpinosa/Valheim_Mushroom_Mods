@@ -49,6 +49,23 @@
   </Target>
   <ItemGroup>
     <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" />
+    <!--
+      This is the only project in the repo targeting .NET Framework rather than
+      netstandard2.1, so it is the only one that needed a v4.8 targeting pack
+      installed on the machine - MSB3644 otherwise, and the pack is Windows-only.
+      This package carries the reference assemblies itself and points
+      TargetFrameworkRootPath at them, so the project builds on a bare SDK and on
+      Linux.
+
+      The per-framework package rather than the Microsoft.NETFramework.ReferenceAssemblies
+      meta package: that one selects by $(TargetFramework), which an old-style
+      project setting $(TargetFrameworkVersion) never defines.
+
+      PrivateAssets="all" matters. Without it the reference assemblies flow
+      through as copy-local content and land in bin\ - roughly a hundred
+      netstandard facade DLLs, which ILRepack would then also see.
+    -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
