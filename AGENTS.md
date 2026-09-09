@@ -15,11 +15,11 @@ Both workflows build through the same composite action,
 [`.github/actions/build-mods`](.github/actions/build-mods/action.yml) — change
 how the mods are built there, not in a workflow.
 
-**Working on any of the Valheim 1.0.7 bug tickets (GitHub issues #5–#19)** —
-read [docs/valheim-1.0-dependency-graph.md](docs/valheim-1.0-dependency-graph.md)
-first. It says which tickets block which, what can run in parallel, and why the
-CI cache bump has to land before anything else. Temporary: this line and that
-file go away when #19 closes.
+**After a Valheim update** — read the "After a Valheim update" section of
+[docs/devops.md](docs/devops.md) before touching any mod. It is the order of
+operations the 1.0.7 update taught: what to rebuild even when nothing looks
+broken, where the first real signal is, and which kinds of change compile
+clean and still fail at runtime.
 
 **Working inside a mod directory** — read that mod's own docs before you touch
 its code, and record what you learn there when you are done. The material that
@@ -33,10 +33,10 @@ mod does not have it yet.
 
 | Mod | Docs |
 |---|---|
-| CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md`, `docs/sailing.md` |
+| CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md`, `docs/sailing.md`, `docs/boss-hp-scaling.md`, `docs/valheim-1.0.md` |
 | CraftableSpawners | `docs/design_decisions.md`, `docs/valheim-1.0-buildui.md` |
 | MushroomSync | `docs/DESIGN.md` |
-| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md` |
+| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md` |
 | haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md`, `docs/placeable-item.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | `docs/yggdrasil-branch.md` |
