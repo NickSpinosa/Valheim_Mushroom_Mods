@@ -298,8 +298,10 @@ internal static class ItemData_GetDamage_TwoHandedTooltip_Patch
     }
 }
 
+// See the note on ItemData_GetTooltip_Patch: the 1.0.7 static overload ends with
+// `bool appending = false`, and the type list has to spell out that optional too.
 [HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip),
-    typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int))]
+    typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int), typeof(bool))]
 internal static class ItemData_GetTooltip_TwoHanded_Patch
 {
     private static void Prefix() => TwoHandedCombat.TooltipDamagePreview = true;
