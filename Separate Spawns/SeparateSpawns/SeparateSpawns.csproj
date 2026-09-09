@@ -41,6 +41,15 @@
       <HintPath>$(ValheimManaged)\assembly_valheim.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!--
+      FileHelpers.FileSource lives in assembly_utils. World.m_fileSource,
+      World.RemoveWorld and World.GetSaveDirectory are all typed on it, so the
+      seed reroll cannot name the local save root without this reference.
+    -->
+    <Reference Include="assembly_utils">
+      <HintPath>$(ValheimManaged)\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(ValheimManaged)\UnityEngine.dll</HintPath>
       <Private>false</Private>

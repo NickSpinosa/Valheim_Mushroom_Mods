@@ -52,6 +52,26 @@ namespace SeparateSpawns
                 ModLog.Error($"Failed to save world layout state: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Drops the layout file for a world uid. Used by the seed reroll: recreating a
+        /// world mints a new m_uid, so the doomed world's file would never be read again.
+        /// </summary>
+        public static void Delete(long worldUid)
+        {
+            try
+            {
+                var path = GetPath(worldUid);
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (Exception ex)
+            {
+                ModLog.Error($"Failed to delete world layout state for {worldUid}: {ex.Message}");
+            }
+        }
     }
 
     internal static class SeedRerollStore
