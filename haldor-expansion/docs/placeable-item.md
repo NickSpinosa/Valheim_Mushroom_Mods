@@ -11,11 +11,11 @@ On 1.0.7 every registration pass logged
 [Error  :Haldor Expansion] Cannot build SuperMistTorch: 'piece_groundtorch_mist' has no ItemDrop.
 ```
 
-and the torch existed nowhere — not in Haldor's stock, not in the hammer.
+and the torch existed nowhere — not in Haldor's stock, not in any build menu.
 
 `BuildPrefab` cloned the vanilla Wisp Torch and required the clone to carry both a
 `Piece` and an `ItemDrop`, because the same prefab has to be the thing Haldor sells *and*
-the thing the hammer places. Read out of the 1.0.7 bundle, the source carries:
+the thing that gets placed. Read out of the 1.0.7 bundle, the source carries:
 
 | Component | |
 |---|---|
@@ -125,6 +125,66 @@ reaching that state means deliberately dropping a 100-coin placeable.
 
 Adding a `Rigidbody` to buy back those two details would put physics on a 2× scaled torch
 whose colliders were authored static, which is a worse trade than the one it fixes.
+
+## Which tool opens the build menu
+
+The item+piece pairing above says what the torch *is*. It says nothing about how a
+player gets a placement ghost, and that was assumed to be the hammer for the first two
+revisions of this file — the piece was injected into the Hammer's `PieceTable`, so a
+bought item turned up in the same list as free-to-build structures and could not be
+placed from the inventory at all (issue #39).
+
+There is exactly one mechanism in the game for entering build mode, and it runs through
+the right hand:
+
+```csharp
+// Humanoid.SetupEquipment, on every equip
+if (m_rightItem != null && (bool)m_rightItem.m_shared.m_buildPieces)
+{
+    SetPlaceMode(m_rightItem.m_shared.m_buildPieces);
+}
+else
+{
+    SetPlaceMode(null);
+}
+```
+
+So "placeable from the inventory" means two things, and both are required:
+
+- **The item must be able to reach the right hand.** `Humanoid.EquipItem` routes only
+  `Tool` (and weapon types) there. The torch was `ItemType.Material`, copied wholesale
+  from `Wood`, and a Material is never `m_rightItem` — no amount of piece-table wiring
+  would have helped while that was true.
+- **The item must carry its own `PieceTable`** on `m_shared.m_buildPieces`. A
+  `PieceTable` is a MonoBehaviour, so it needs a GameObject; the torch's lives on a child
+  of the inactive prefab container. One piece, `m_hideAdvancedMenu = true` because tags
+  and favourites over a single entry are noise.
+
+The Hammer, Hoe and Cultivator are all this shape. 1.0 also ships `Feaster.prefab`
+alongside `_FeasterPieceTable.prefab`, which is a non-tool precedent — though note the
+Feaster is *reusable* and its pieces cost other items, so it is a precedent for the
+mechanism and not for what follows.
+
+### Being both the tool and the material is the part vanilla never does
+
+The torch's `Piece.m_resources` is itself ×1, so placing the last one deletes the item
+currently in the player's hand. Nothing in the game unequips an item that has left the
+inventory — `Inventory.RemoveItem` does not, `Humanoid.UpdateEquipment` only drains
+durability, and `Player.OnInventoryChanged` only registers what was gained. The case
+simply does not arise in vanilla, because a hammer is never one of its own ingredients.
+
+Left alone, the player keeps a phantom held item and an unplaceable ghost until they
+switch tools. `SuperMistTorch.UnequipIfDepleted`, hung off a `Player.PlacePiece`
+postfix, closes it: if the right hand is a torch that is no longer in the inventory,
+unequip it. It returns immediately for every other placement in the game.
+
+This is also why the stack size is 1. Vanilla stacks nothing equippable, and an item
+that is consumed out of the inventory *while equipped* is already one unusual thing;
+stacking it would have been two at once.
+
+Removal is unaffected and stays with the hammer. `Player.RemovePiece` raycasts, checks
+`m_canBeRemoved`, and never consults the piece table you happen to be holding — so
+dropping the torch from the Hammer's table costs nothing.
 
 ## Reading prefab components without launching the game
 
