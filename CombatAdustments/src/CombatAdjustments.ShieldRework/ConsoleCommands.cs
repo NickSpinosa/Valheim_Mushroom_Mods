@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using UnityEngine;
 
@@ -13,32 +14,45 @@ internal static class ConsoleCommands
             return;
         _registered = true;
 
-        // Not a cheat — available without `devcommands` so you can inspect balance mid-fight.
-        _ = new Terminal.ConsoleCommand(
-            "shieldstagger",
-            "print current stagger bar breakdown (base HP + shield grant)",
-            PrintStagger,
-            isCheat: false);
+        // Terminal.ConsoleCommand's constructor has changed shape across game updates (1.0.7
+        // inserted hideBehindDevCommands), and C# bakes optional-argument defaults into the
+        // caller, so a DLL built against an older game throws MissingMethodException right here.
+        // Losing these commands is survivable; letting the exception escape the InitTerminal
+        // postfix chain takes every other mod's commands down with it.
+        try
+        {
+            // Not a cheat — available without `devcommands` so you can inspect balance mid-fight.
+            _ = new Terminal.ConsoleCommand(
+                "shieldstagger",
+                "print current stagger bar breakdown (base HP + shield grant)",
+                PrintStagger,
+                isCheat: false);
 
-        _ = new Terminal.ConsoleCommand(
-            "sstagger",
-            "alias for shieldstagger",
-            PrintStagger,
-            isCheat: false);
+            _ = new Terminal.ConsoleCommand(
+                "sstagger",
+                "alias for shieldstagger",
+                PrintStagger,
+                isCheat: false);
 
-        _ = new Terminal.ConsoleCommand(
-            "staggerhud",
-            "toggle on-screen stagger current/total under the stagger bar (optional: on|off)",
-            ToggleStaggerHud,
-            isCheat: false);
+            _ = new Terminal.ConsoleCommand(
+                "staggerhud",
+                "toggle on-screen stagger current/total under the stagger bar (optional: on|off)",
+                ToggleStaggerHud,
+                isCheat: false);
 
-        _ = new Terminal.ConsoleCommand(
-            "shud",
-            "alias for staggerhud",
-            ToggleStaggerHud,
-            isCheat: false);
+            _ = new Terminal.ConsoleCommand(
+                "shud",
+                "alias for staggerhud",
+                ToggleStaggerHud,
+                isCheat: false);
 
-        ShieldReworkPlugin.Log.LogInfo("Console commands registered: shieldstagger, sstagger, staggerhud, shud");
+            ShieldReworkPlugin.Log.LogInfo("Console commands registered: shieldstagger, sstagger, staggerhud, shud");
+        }
+        catch (Exception ex)
+        {
+            ShieldReworkPlugin.Log.LogError(
+                $"Failed to register Shield Rework console commands; continuing without them: {ex.Message}");
+        }
     }
 
     private static void ToggleStaggerHud(Terminal.ConsoleEventArgs args)
@@ -108,5 +122,16 @@ internal static class ConsoleCommands
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 internal static class Terminal_InitTerminal_Patch
 {
-    private static void Postfix() => ConsoleCommands.Register();
+    private static void Postfix()
+    {
+        // Second belt: nothing this postfix does is worth aborting the rest of the chain for.
+        try
+        {
+            ConsoleCommands.Register();
+        }
+        catch (Exception ex)
+        {
+            ShieldReworkPlugin.Log.LogError($"Terminal.InitTerminal postfix failed: {ex.Message}");
+        }
+    }
 }

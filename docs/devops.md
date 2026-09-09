@@ -143,6 +143,9 @@ The whole tree is cached, and both workflows share one cache. Bump
 `refs-cache-version` in the composite action to discard
 it and refetch — worth doing after a Valheim update the mods need to build
 against. A cold run takes roughly two minutes; a cached one about half that.
+Neither workflow overrides the input, so bumping its default in the action is
+the whole change. Last bumped to `v2` for the Valheim 1.0.7 update (the cache
+still held 0.221 assemblies, so CI could not see the 1.0.7 signature changes).
 
 ## Adding a mod
 
