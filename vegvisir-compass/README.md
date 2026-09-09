@@ -224,12 +224,24 @@ several provisional merchants can exist at once and none of them is a commitment
 **Opening the trader's shop settles the site**: every other trader is destroyed
 for good and vanilla's cleanup is finally allowed to clear the spare candidates.
 
-Proximity is measured by mirroring `ZoneSystem.CreateGhostZones` — the camp's zone
-against each peer's reference position — rather than in metres, so "vanilla range"
-stays whatever vanilla says it is. It deliberately does not use `IsZoneLoaded` or
-`Player.GetAllPlayers`: a dedicated server only loads zones around its own
-reference position and never instantiates a Player for a remote client, so both
-are blind to where anyone actually is.
+Proximity is asked of the game — `ZNetScene.InActiveArea(campPosition, refPos)`,
+once for the host's reference position and once per peer — rather than measured in
+metres, so "vanilla range" stays whatever vanilla says it is. It deliberately does
+not use `IsZoneLoaded` or `Player.GetAllPlayers`: a dedicated server only loads
+zones around its own reference position and never instantiates a Player for a
+remote client, so both are blind to where anyone actually is.
+
+Reconstructing that reach by hand is the trap, and Valheim 1.0 turned it into a
+bug. This used to be zone arithmetic — the camp's zone against the player's zone,
+within `ZoneSystem.m_activeArea + m_activeDistantArea`. Those two fields are gone.
+The active area is now a **server-synced, player-configurable** `SimulationDistance`
+(`ZNet.GetSyncedSimulationDistance()`), so there is no constant left to copy, and
+its shape is not even a square of zones: at near distance 2, non-classic,
+`ZNetScene.PointInsideActiveArea` intersects the 1.5-zone Chebyshev box with a
+1.75-zone radius, clipping the corners. Any arithmetic of our own would be a second
+copy of a rule the player can change under it, and provisional merchants would
+spawn or vanish at a distance that no longer matches what the server actually
+simulates. `ZNetScene.InActiveArea` is static and public — use it.
 
 Settling runs on the server, over an RPC, because `StoreGui.Show` is client-side
 and a client owns none of the rival traders' ZDOs. The settled flag rides on a
