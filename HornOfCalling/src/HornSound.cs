@@ -27,23 +27,43 @@ namespace HornOfCalling
         /// <summary>
         /// Distance in metres the falloff curve is defined over.
         ///
-        /// 64 m is not an audio decision - it is the radius a ZDO is guaranteed to reach.
-        /// The blast is a networked object, and ZDOMan only sends non-distant ZDOs to
-        /// peers whose active area covers them: ZoneSystem's `m_activeArea = 1` over
-        /// 64 m zones, so a peer's own zone plus one ring. Past that the other player
-        /// never receives the object at all and no volume setting can help.
+        /// 64 m is not an audio decision - it is the radius a ZDO is guaranteed to reach
+        /// every listener at. The blast is a networked object, and a peer is only sent
+        /// the ZDOs sitting in the zones its own simulation distance covers. Past that
+        /// the other player never receives the object at all and no volume can help.
+        ///
+        /// Since 1.0.7 that radius is a player setting rather than a constant.
+        /// `ZoneSystem.m_activeArea` is gone; `ZDOMan.FindSectorObjects` takes a
+        /// `SimulationDistance`, and both the server's per-peer send list and the
+        /// client's own `ZNetScene.CreateDestroyObjects` pass what
+        /// `ZNet.GetSyncedSimulationDistance()` returns - the listener's graphics
+        /// setting, clamped by the server's. Over the 0..6 range that setting allows:
+        ///
+        ///   level 0        (1, 2, classic: true)  3x3 square             ->  64 m
+        ///   level 1        (2, 2)                 5x5 less its corners   -> ~90 m
+        ///   level 2 (dflt) (2, 2, classic: true)  5x5 square             -> 128 m
+        ///
+        /// so 64 m is the floor of the range, not the whole of it: level 0 is `classic`
+        /// with a near distance of 1, which is the old one-ring square exactly. The
+        /// curve is tuned to the floor because it is the only reach every listener has.
+        ///
+        /// Deriving this from `GetSyncedSimulationDistance()` would not be wrong in
+        /// principle - it is the *listener's* setting that decides what reaches them,
+        /// and this curve is evaluated on the listener's machine - but Attach builds
+        /// the prefab once, while the setting can change at any point afterwards, so
+        /// the derived value would be a snapshot that quietly goes stale.
         /// </summary>
         private const float MaxDistance = 64f;
 
         /// <summary>
         /// The falloff, as (metres, volume) points on a plateau curve: full volume out to
         /// 15 m, then 18 points off every 10 m until 28%, which holds from 45 m to the
-        /// edge of the network range.
+        /// edge of the guaranteed network reach.
         ///
         /// The step is 18 points rather than a rounder 10 so the descent spans the
         /// audible range in whole tiers. At 10 points a tier the horn is still at 50%
-        /// where the network cuts it off at <see cref="MaxDistance"/>, because nine
-        /// tiers are needed to fall from 100% to a floor and nine of them reach 105 m.
+        /// where the curve ends at <see cref="MaxDistance"/>, because nine tiers are
+        /// needed to fall from 100% to a floor and nine of them reach 105 m.
         ///
         /// The doubled points half a metre past each boundary are what make the steps
         /// steps: with flat tangents on every key, two keys of equal value hold a level
