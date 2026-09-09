@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomMods;
 
 namespace VegvisirCompass
 {
@@ -124,10 +125,13 @@ namespace VegvisirCompass
                 "Debug", "VerboseLogging", false,
                 "Log detailed information about looting, RPCs and compass use.");
 
+            // Per class, so one moved patch target cannot unwind the config binding
+            // above. See Shared/PatchIsolation.cs.
             _harmony = new Harmony(ModInfo.Guid);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
+            int skipped = PatchIsolation.PatchAllIsolated(_harmony, typeof(Plugin).Assembly, Log);
 
-            Log.LogInfo($"{ModInfo.Name} {ModInfo.Version} loaded.");
+            Log.LogInfo($"{ModInfo.Name} {ModInfo.Version} loaded."
+                + (skipped > 0 ? $" {skipped} patch class(es) skipped - see the errors above." : string.Empty));
         }
 
         private void OnDestroy()

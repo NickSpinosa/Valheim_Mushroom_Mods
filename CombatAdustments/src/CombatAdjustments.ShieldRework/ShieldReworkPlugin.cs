@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using MushroomMods;
 using MushroomSync;
 using UnityEngine;
 
@@ -139,9 +140,6 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         EnableUncapHealthScaling = ModConfig.Bind("Difficulty", "EnableUncapHealthScaling", true,
             "Let effective enemy HP keep scaling with nearby players past vanilla's 5-player cap (+30% per extra player). Enemy damage dealt stays capped at 5.");
 
-        _harmony = new Harmony(PluginGuid);
-        _harmony.PatchAll(Assembly.GetExecutingAssembly());
-
         Sync.Register(
             EnableStaggerGrant,
             EnableTowerArmorBonus,
@@ -196,7 +194,15 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         OceanWeather.Apply();
 
         ConsoleCommands.Register(); // safe if Terminal not ready yet; patch also registers on InitTerminal
-        Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
+
+        // Last on purpose, and per class. Everything above has to happen whether or not
+        // a patch target moved - in 1.0.7 a single changed GetTooltip signature took all
+        // of it down (#5). See Shared/PatchIsolation.cs.
+        _harmony = new Harmony(PluginGuid);
+        int skipped = PatchIsolation.PatchAllIsolated(_harmony, Assembly.GetExecutingAssembly(), Log);
+
+        Log.LogInfo($"{PluginName} {PluginVersion} loaded."
+            + (skipped > 0 ? $" {skipped} patch class(es) skipped - see the errors above." : string.Empty));
     }
 
     private void OnDestroy()

@@ -5,6 +5,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using CraftableSpawners.Configuration;
 using HarmonyLib;
+using MushroomMods;
 using MushroomSync;
 using UnityEngine;
 
@@ -61,8 +62,13 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
             .WatchForChanges(configFile)
             .Start();
 
-        harmony.PatchAll(Assembly.GetExecutingAssembly());
-        Dbgl($"Loaded {PluginName} {Version}");
+        // Last, and per class: a patch whose target moved must not take the config
+        // sync above it down with it. See Shared/PatchIsolation.cs.
+        int skipped = PatchIsolation.PatchAllIsolated(harmony, Assembly.GetExecutingAssembly(), Log);
+
+        Dbgl($"Loaded {PluginName} {Version}"
+            + (skipped > 0 ? $" - {skipped} patch class(es) skipped, see the errors above." : string.Empty),
+            forceLog: skipped > 0);
     }
 
     internal static void Dbgl(string message, bool forceLog = false)

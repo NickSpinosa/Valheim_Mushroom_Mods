@@ -15,6 +15,11 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);tools\**</DefaultItemExcludes>
   </PropertyGroup>
 
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
     <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" PrivateAssets="all" />

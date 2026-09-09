@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using MushroomMods;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -43,8 +44,17 @@ namespace RandomYggdrasil
                 true,
                 "If on, the server owns world rotations and connected clients use the server's values.");
 
-            harmony.PatchAll();
             RotationSync.Initialize(Logger);
+
+            // Last, and per class: RotationSync above is what makes the mod work on a
+            // client at all, and it used to sit behind an unguarded PatchAll.
+            // See Shared/PatchIsolation.cs.
+            int skipped = PatchIsolation.PatchAllIsolated(harmony, typeof(RandomYggdrasilMod).Assembly, Logger);
+            if (skipped > 0)
+            {
+                Logger.LogWarning($"RandomYggdrasil: {skipped} patch class(es) skipped - see the errors above.");
+            }
+
             Debug.Log($"RandomYggdrasil: Loaded ({(IsDedicatedServer() ? "dedicated server" : "client")}), config at '{modConfig.ConfigFilePath}'");
         }
 

@@ -15,6 +15,11 @@
     are private. The publicizer rewrites the reference assemblies at build time only -
     it changes nothing at runtime and adds no dependency for players.
   -->
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
   </ItemGroup>
