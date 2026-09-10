@@ -1,7 +1,16 @@
-# One prefab that is both an item and a piece
+# An item you can place, and the piece it places
 
-Why `SuperMistTorch` adds an `ItemDrop` to a build piece, and why that is the vanilla
-shape rather than a workaround.
+Why `SuperMistTorch` is **two** prefabs — `SuperMistTorch` (the item Haldor sells) and
+`SuperMistTorchPiece` (the thing that gets placed) — after being one for three
+revisions.
+
+> **If you are here to change something, read [Why one prefab cannot be
+> both](#why-one-prefab-cannot-be-both) first.** For three revisions this file argued
+> that one prefab should be both halves, because that is a genuine vanilla shape. It
+> is a genuine vanilla shape, and it still could not work here — it took a live bug
+> (#42) to find out why. Everything before that section is reasoning that is still
+> true and still load-bearing: how the item reaches the right hand, where `ItemData`
+> comes from, and how to read prefabs without launching the game.
 
 ## The failure
 
@@ -73,17 +82,15 @@ there is no path that gives a piece an item form.
 
 ## Where the item data comes from
 
-`AddItemHalf` copies `ItemData` off a vanilla item (`Wood`) by instantiating it and
-keeping the copy:
+`BuildItemPrefab` clones a vanilla item (`Wood`) whole and edits the copy. `ItemData`
+and `SharedData` are plain `[Serializable]` classes, so `Instantiate` deep-copies them
+and the edits cannot leak back into Wood.
 
-```csharp
-GameObject scratch = Object.Instantiate(template, _prefabContainer.transform);
-ItemDrop.ItemData data = scratch.GetComponent<ItemDrop>().m_itemData;
-Object.Destroy(scratch);
-```
-
-`ItemData` and `SharedData` are plain `[Serializable]` classes, so `Instantiate`
-deep-copies them and the scratch GameObject can be thrown away while the data lives on.
+*(Earlier revisions kept only the data — instantiating `Wood`, lifting its `ItemData`
+onto the piece, and destroying the scratch GameObject. Cloning the whole prefab is what
+gives the item its own `Rigidbody` and `ZSyncTransform`, so a dropped torch falls and
+can be walked over. The cost is cosmetic and confined to that state: a dropped torch
+wears Wood's model until picked up.)*
 
 **Do not build the `SharedData` with `new` instead.** It is the same trap
 [trade-item-1.0.7.md](trade-item-1.0.7.md) describes from the other side: Unity authors
@@ -116,15 +123,75 @@ well as the placed one. What that changes:
 | `ItemDrop.TimedDestruction` | guarded on `!IsPiece()` — a bought torch is never auto-despawned after an hour |
 | `Player.AutoPickup` | skips pieces — a placed torch is not vacuumed up by walking past it |
 | `ItemDrop.Interact` | **not** guarded — manual pickup still works on a dropped one |
+| `Player.UpdatePlacement` | **the one this table missed.** See below — it is what broke hammer removal |
 
-The first two are what we want and are the reason the Rigidbody is not worth adding back.
-The cost is cosmetic and confined to a state the normal flow never reaches: a torch
-*dropped* from the inventory rather than placed does not fall, and has to be picked up
-with a keypress instead of by walking over it. Purchases go straight to the inventory, so
-reaching that state means deliberately dropping a 100-coin placeable.
+The first two read as what we want. The fourth is the one that was not enumerated, and
+it is the reason this whole design had to be undone.
 
-Adding a `Rigidbody` to buy back those two details would put physics on a 2× scaled torch
-whose colliders were authored static, which is a worse trade than the one it fixes.
+*(Historical note: this section originally concluded that a `Rigidbody` was not worth
+adding back, because it would put physics on a 2× scaled torch whose colliders were
+authored static. That trade-off is real, and it is moot now — the item and the piece
+are separate prefabs, so the item can carry a Rigidbody and the piece never does.)*
+
+## Why one prefab cannot be both
+
+`IsPiece()` has a fourth caller, and it is the gate that decides whether the hammer
+will even attempt a removal (`Player.UpdatePlacement`, 1.0.7):
+
+```csharp
+bool flag = (rightItem.m_shared.m_buildPieces.m_canRemovePieces
+             && (!hoveringPiece || (!feast && (!itemDrop || !itemDrop.IsPiece()))))
+         || (rightItem.m_shared.m_buildPieces.m_canRemoveFeasts
+             && (!hoveringPiece || (bool)feast || ((bool)itemDrop && itemDrop.IsPiece())));
+```
+
+`itemDrop` is the `ItemDrop` on the object under the cursor. Hovering a placed torch
+with a hammer: `m_canRemovePieces` is true, `hoveringPiece` is true, `feast` is null,
+and `IsPiece()` is true — so the first clause is false. The second requires the
+**Hammer's** `m_canRemoveFeasts`, which is false; that flag is the Feaster's.
+
+So `flag` is false, `RemovePiece()` is never called, and none of its own checks
+(`m_canBeRemoved`, `CheckCanRemovePiece`, …) are ever reached. The torch could not be
+removed with a hammer at all. Its resources could not be refunded, and a misplaced one
+was permanent.
+
+This is not a bug in the gate. Vanilla is deliberately classifying "a placed thing that
+is also an item" as feast-shaped and routing its removal to the tool that removes
+feasts. Food and mead work precisely because they *are* that. Our torch is not, and
+saying it was made the game treat it as one.
+
+**There is no field that fixes this while one prefab is both halves.** Read the
+predicate again:
+
+```csharp
+public bool IsPiece() => !m_body && m_piece && m_wnt;
+```
+
+A placed torch cannot have a `Rigidbody` — `MakePiece()` destroys it. It must keep its
+`Piece`, and it must keep its `WearNTear` or it cannot be damaged or removed at all.
+All three terms are forced, so `IsPiece()` is necessarily true, so the hammer is
+necessarily diverted. The only way out is for the placed object not to be an item.
+
+### What replaced it
+
+Two prefabs, wired to each other:
+
+- **`SuperMistTorch`** — cloned from a vanilla *item*. `ItemDrop`, `Rigidbody`, no
+  `Piece`. Type `Tool` so it can reach the right hand, carrying its own one-entry
+  `PieceTable` on `m_buildPieces` so equipping it enters build mode. Everything the
+  ["Which tool opens the build menu"](#which-tool-opens-the-build-menu) section
+  established still applies, unchanged — that reasoning was never the problem.
+- **`SuperMistTorchPiece`** — the scaled Wisp Torch clone, with no `ItemDrop`.
+  `m_resources` is the item ×1 with `m_recover = true`, so placing consumes the
+  purchase and hammer-removal refunds it.
+
+With no `ItemDrop` on the placed object, `itemDrop` at the gate is null, the first
+clause is true, and the hammer behaves exactly as it does for every other piece in the
+game. The refund still works because `m_recover` is a `Piece` mechanism and never
+needed the item and the piece to be the same object.
+
+The item keeps the name `SuperMistTorch` because the trade table and saved configs
+refer to it, and because the item is what Haldor sells.
 
 ## Which tool opens the build menu
 
@@ -182,9 +249,17 @@ This is also why the stack size is 1. Vanilla stacks nothing equippable, and an 
 that is consumed out of the inventory *while equipped* is already one unusual thing;
 stacking it would have been two at once.
 
-Removal is unaffected and stays with the hammer. `Player.RemovePiece` raycasts, checks
-`m_canBeRemoved`, and never consults the piece table you happen to be holding — so
-dropping the torch from the Hammer's table costs nothing.
+Removal stays with the hammer, and dropping the torch from the Hammer's table costs
+nothing. `Player.RemovePiece` raycasts, checks `m_canBeRemoved`, and never consults the
+piece table you happen to be holding.
+
+> **That last sentence is true and was not enough.** `RemovePiece` really is
+> table-agnostic — but its *caller* is not, and for three revisions this file cited the
+> callee as though it settled the question. It gates on the hovered object's
+> `ItemDrop.IsPiece()` before `RemovePiece` is reached, which is how a placed torch
+> ended up unremovable while this paragraph said it could not be. See [Why one prefab
+> cannot be both](#why-one-prefab-cannot-be-both). When a claim is about whether some
+> vanilla behaviour happens, check the call site as well as the method.
 
 ## Reading prefab components without launching the game
 
