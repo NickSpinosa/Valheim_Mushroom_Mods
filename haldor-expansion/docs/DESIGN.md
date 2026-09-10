@@ -50,7 +50,7 @@ no Jötunn.
 
 | Property | Value |
 |---|---|
-| Prefab name | `SuperMistTorch` |
+| Prefab names | `SuperMistTorch` (the item), `SuperMistTorchPiece` (the placed object) |
 | Visual scale | 2× the vanilla piece |
 | Demist radius | 100 m |
 | Default cost | 100 coins |
@@ -58,10 +58,17 @@ no Jötunn.
 
 | Item weight / max stack | 10 / 1 (stack is 1 because the item is equippable) |
 
-**How placement works.** The same prefab is the inventory item Haldor sells *and* the
-piece. Its `Piece.m_resources` costs one of itself, so buying from Haldor is what
-stocks the material placement consumes. Hammer-remove refunds the item
-(`m_recover = true`).
+**How placement works.** Two prefabs. `SuperMistTorch` is the item Haldor sells — an
+item clone with an `ItemDrop` and no `Piece`. `SuperMistTorchPiece` is the scaled Wisp
+Torch clone with no `ItemDrop`, and its `Piece.m_resources` is the item ×1, so buying
+from Haldor is what stocks the material placement consumes. Hammer-remove refunds the
+item (`m_recover = true`).
+
+They were one prefab until #42. A placed object carrying an `ItemDrop` satisfies
+`ItemDrop.IsPiece()`, and `Player.UpdatePlacement` routes anything that does down the
+Hammer's `m_canRemoveFeasts` branch — which is false — so it could not be hammer-removed
+at all. [placeable-item.md](placeable-item.md) has why no field could fix that while
+one prefab was both.
 
 **It is placed from the inventory, not with the hammer.** The item is an
 `ItemType.Tool` carrying its own one-entry `PieceTable` on `m_shared.m_buildPieces`;
