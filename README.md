@@ -66,8 +66,10 @@ tell you: **Steam → Valheim → Manage → Browse local files**. The folder is
 right one if it contains `valheim.x86_64` and, once the zip is extracted,
 `start_game_bepinex.sh`.
 
-Unzip `MushroomMods-plugins.zip` and drop its contents straight into that
-folder. BepInEx ships inside the zip, so there is nothing else to download.
+Unzip `MushroomMods-plugins.zip` and drop its contents straight into the
+Valheim folder — the one holding `valheim.x86_64`, so
+`~/.local/share/Steam/steamapps/common/Valheim` on a default install. BepInEx
+ships inside the zip, so there is nothing else to download.
 
 **2. Make the launch script executable.** The zip does not preserve the
 execute bit, and without it Steam's launch option fails silently:
