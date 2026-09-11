@@ -64,12 +64,9 @@ tell you: **Steam → Valheim → Manage → Browse local files**. The folder is
 right one if it contains `valheim.x86_64` and, once BepInEx is extracted,
 `start_game_bepinex.sh`.
 
-That is two extractions, and they do not go to the same place:
-[BepInExPack_Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-extracts into the Valheim folder itself — that is what creates `BepInEx/` and
-`start_game_bepinex.sh` — and `MushroomMods-plugins.zip` extracts into the
-`BepInEx/` directory it leaves behind, landing the DLLs in `BepInEx/plugins/`
-as above.
+Extract [BepInExPack_Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
+into that folder, then unzip `MushroomMods-plugins.zip` and drop its `plugins`
+folder into the `BepInEx/` directory the pack just created.
 
 **2. Make the launch script executable.** The BepInEx zip does not preserve
 the execute bit, and without it Steam's launch option fails silently:
