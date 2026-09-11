@@ -49,6 +49,78 @@ and on the dedicated server**; check each mod's own README.
 
 No built DLL is committed to this repo; releases carry the artifacts.
 
+### On Linux
+
+Valheim's native Linux build runs these mods fine, but Steam does not launch
+BepInEx for you — three things have to be right.
+
+**1. Find the game folder.** Steam's default library puts it at:
+
+```
+~/.local/share/Steam/steamapps/common/Valheim
+```
+
+`~/.steam/steam/` is a symlink to the same place, so either path works. If the
+game lives in a second library (an external drive, another partition), let Steam
+tell you: **Steam → Valheim → Manage → Browse local files**. The folder is the
+right one if it contains `valheim.x86_64` and, once the zip is extracted,
+`start_game_bepinex.sh`.
+
+Unzip `MushroomMods-plugins.zip` and drop its contents straight into the
+Valheim folder — the one holding `valheim.x86_64`, so
+`~/.local/share/Steam/steamapps/common/Valheim` on a default install. BepInEx
+ships inside the zip, so there is nothing else to download.
+
+**2. Make the launch script executable.** The zip does not preserve the
+execute bit, and without it Steam's launch option fails silently:
+
+```bash
+cd ~/.local/share/Steam/steamapps/common/Valheim
+chmod u+x start_game_bepinex.sh
+```
+
+**3. Add the script to Valheim's launch options.** **Steam → Valheim →
+Properties → General → Launch Options**, and set:
+
+```
+./start_game_bepinex.sh %command%
+```
+
+While you are in Properties, go to **Compatibility** and **uncheck** "Force the
+use of a specific Steam Play compatibility tool". Proton breaks doorstop
+injection on the native build — the game starts, but no plugin loads.
+
+**Check it worked.** `BepInEx/LogOutput.log` appears in the game folder after a
+launch, and names each plugin it loads:
+
+```bash
+grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil" \
+  ~/.local/share/Steam/steamapps/common/Valheim/BepInEx/LogOutput.log
+```
+
+If the log never appears at all, run `./start_game_bepinex.sh` from a terminal —
+Steam's container runtime swallows the error message.
+
+#### Turning the mods off
+
+To play vanilla without uninstalling anything, rename the plugins folder:
+
+```bash
+cd ~/.local/share/Steam/steamapps/common/Valheim/BepInEx
+mv plugins plugins_disabled
+```
+
+BepInEx only loads what it finds in `plugins/`, so anything under another name
+is invisible to it — the launch option, the execute bit and BepInEx itself can
+all stay exactly as they are. Any name works; `plugins_disabled` is just the
+obvious one. Rename it back to turn the mods on again.
+
+On Windows it is the same rename, in `BepInEx\plugins`.
+
+None of this touches the server. These mods are mostly server-authoritative, so
+a dedicated server that still has them keeps applying its own rules — disabling
+locally only stops *your* client from loading them.
+
 ## Building and releasing
 
 See [docs/devops.md](docs/devops.md).
