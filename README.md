@@ -100,6 +100,26 @@ Steam's container runtime swallows the error message.
 
 No built DLL is committed to this repo; releases carry the artifacts.
 
+### Turning the mods off
+
+To play vanilla without uninstalling anything, rename the plugins folder:
+
+```bash
+cd ~/.local/share/Steam/steamapps/common/Valheim/BepInEx
+mv plugins plugins_disabled
+```
+
+BepInEx only loads what it finds in `plugins/`, so anything under another name
+is invisible to it — the launch option, the execute bit and BepInEx itself can
+all stay exactly as they are. Any name works; `plugins_disabled` is just the
+obvious one. Rename it back to turn the mods on again.
+
+On Windows it is the same rename, in `BepInEx\plugins`.
+
+None of this touches the server. These mods are mostly server-authoritative, so
+a dedicated server that still has them keeps applying its own rules — disabling
+locally only stops *your* client from loading them.
+
 ## Building and releasing
 
 See [docs/devops.md](docs/devops.md).
