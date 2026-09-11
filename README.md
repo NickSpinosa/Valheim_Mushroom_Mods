@@ -47,6 +47,8 @@ independent.
 Most of these mods are server-authoritative, so install them on **every client
 and on the dedicated server**; check each mod's own README.
 
+No built DLL is committed to this repo; releases carry the artifacts.
+
 ### On Linux
 
 Valheim's native Linux build runs these mods fine, but Steam does not launch
@@ -61,15 +63,14 @@ BepInEx for you — three things have to be right.
 `~/.steam/steam/` is a symlink to the same place, so either path works. If the
 game lives in a second library (an external drive, another partition), let Steam
 tell you: **Steam → Valheim → Manage → Browse local files**. The folder is the
-right one if it contains `valheim.x86_64` and, once BepInEx is extracted,
+right one if it contains `valheim.x86_64` and, once the zip is extracted,
 `start_game_bepinex.sh`.
 
-Extract [BepInExPack_Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-into that folder, then unzip `MushroomMods-plugins.zip` and drop its `plugins`
-folder into the `BepInEx/` directory the pack just created.
+Unzip `MushroomMods-plugins.zip` and drop its contents straight into that
+folder. BepInEx ships inside the zip, so there is nothing else to download.
 
-**2. Make the launch script executable.** The BepInEx zip does not preserve
-the execute bit, and without it Steam's launch option fails silently:
+**2. Make the launch script executable.** The zip does not preserve the
+execute bit, and without it Steam's launch option fails silently:
 
 ```bash
 cd ~/.local/share/Steam/steamapps/common/Valheim
@@ -98,9 +99,7 @@ grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil" 
 If the log never appears at all, run `./start_game_bepinex.sh` from a terminal —
 Steam's container runtime swallows the error message.
 
-No built DLL is committed to this repo; releases carry the artifacts.
-
-### Turning the mods off
+#### Turning the mods off
 
 To play vanilla without uninstalling anything, rename the plugins folder:
 
