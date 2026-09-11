@@ -47,6 +47,60 @@ independent.
 Most of these mods are server-authoritative, so install them on **every client
 and on the dedicated server**; check each mod's own README.
 
+### On Linux
+
+Valheim's native Linux build runs these mods fine, but Steam does not launch
+BepInEx for you — three things have to be right.
+
+**1. Find the game folder.** Steam's default library puts it at:
+
+```
+~/.local/share/Steam/steamapps/common/Valheim
+```
+
+`~/.steam/steam/` is a symlink to the same place, so either path works. If the
+game lives in a second library (an external drive, another partition), let Steam
+tell you: **Steam → Valheim → Manage → Browse local files**. The folder is the
+right one if it contains `valheim.x86_64` and, once BepInEx is extracted,
+`start_game_bepinex.sh`.
+
+Install BepInEx by extracting
+[BepInExPack_Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
+into that folder, then drop the mod DLLs into `BepInEx/plugins/` as above.
+
+**2. Make the launch script executable.** The zip does not preserve the
+execute bit, and without it Steam's launch option fails silently:
+
+```bash
+cd ~/.local/share/Steam/steamapps/common/Valheim
+chmod u+x start_game_bepinex.sh
+```
+
+On a dedicated server the script is `start_server_bepinex.sh` instead; it needs
+the same `chmod`.
+
+**3. Add the script to Valheim's launch options.** **Steam → Valheim →
+Properties → General → Launch Options**, and set:
+
+```
+./start_game_bepinex.sh %command%
+```
+
+While you are in Properties, go to **Compatibility** and **uncheck** "Force the
+use of a specific Steam Play compatibility tool". Proton breaks doorstop
+injection on the native build — the game starts, but no plugin loads.
+
+**Check it worked.** `BepInEx/LogOutput.log` appears in the game folder after a
+launch, and names each plugin it loads:
+
+```bash
+grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil" \
+  ~/.local/share/Steam/steamapps/common/Valheim/BepInEx/LogOutput.log
+```
+
+If the log never appears at all, run `./start_game_bepinex.sh` from a terminal —
+Steam's container runtime swallows the error message.
+
 No built DLL is committed to this repo; releases carry the artifacts.
 
 ## Building and releasing
