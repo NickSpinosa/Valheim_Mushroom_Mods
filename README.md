@@ -64,20 +64,20 @@ tell you: **Steam → Valheim → Manage → Browse local files**. The folder is
 right one if it contains `valheim.x86_64` and, once BepInEx is extracted,
 `start_game_bepinex.sh`.
 
-Install BepInEx by extracting
+That is two extractions, and they do not go to the same place:
 [BepInExPack_Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-into that folder, then drop the mod DLLs into `BepInEx/plugins/` as above.
+extracts into the Valheim folder itself — that is what creates `BepInEx/` and
+`start_game_bepinex.sh` — and `MushroomMods-plugins.zip` extracts into the
+`BepInEx/` directory it leaves behind, landing the DLLs in `BepInEx/plugins/`
+as above.
 
-**2. Make the launch script executable.** The zip does not preserve the
-execute bit, and without it Steam's launch option fails silently:
+**2. Make the launch script executable.** The BepInEx zip does not preserve
+the execute bit, and without it Steam's launch option fails silently:
 
 ```bash
 cd ~/.local/share/Steam/steamapps/common/Valheim
 chmod u+x start_game_bepinex.sh
 ```
-
-On a dedicated server the script is `start_server_bepinex.sh` instead; it needs
-the same `chmod`.
 
 **3. Add the script to Valheim's launch options.** **Steam → Valheim →
 Properties → General → Launch Options**, and set:
