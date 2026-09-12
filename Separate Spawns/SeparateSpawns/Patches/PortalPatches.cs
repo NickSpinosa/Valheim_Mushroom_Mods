@@ -8,7 +8,13 @@ namespace SeparateSpawns.Patches
     {
         private static void Postfix(TeleportWorld __instance)
         {
+            GroupPortalMarker.StripMarkerFromSharedPrefabs();
             GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject);
+            // Awake runs before a freshly placed group portal writes its ZDO key.
+            // Initialize sets the flag afterwards. Loaded portals already have the
+            // key, so this is what makes a crafted portal hammer-removable again
+            // even if the shared prefab's Piece flag was flipped.
+            GroupPortalMarker.ApplyHammerRemoval(__instance.gameObject);
         }
     }
 
@@ -18,6 +24,11 @@ namespace SeparateSpawns.Patches
         private static bool Prefix(TeleportWorld __instance, Humanoid human, bool hold, ref bool __result)
         {
             if (hold)
+            {
+                return true;
+            }
+
+            if (!GroupPortalMarker.IsProtectedPortal(__instance.gameObject))
             {
                 return true;
             }
@@ -53,6 +64,11 @@ namespace SeparateSpawns.Patches
     {
         private static void Postfix(TeleportWorld __instance, ref string __result)
         {
+            if (!GroupPortalMarker.IsProtectedPortal(__instance.gameObject))
+            {
+                return;
+            }
+
             var marker = GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject);
             if (marker == null)
             {
@@ -73,13 +89,7 @@ namespace SeparateSpawns.Patches
     {
         private static bool Prefix(TeleportWorld __instance)
         {
-            var marker = GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject);
-            if (marker == null)
-            {
-                return true;
-            }
-
-            return false;
+            return !GroupPortalMarker.IsProtectedPortal(__instance.gameObject);
         }
     }
 
@@ -88,6 +98,11 @@ namespace SeparateSpawns.Patches
     {
         private static bool Prefix(TeleportWorld __instance)
         {
+            if (!GroupPortalMarker.IsProtectedPortal(__instance.gameObject))
+            {
+                return true;
+            }
+
             var marker = GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject);
             if (marker == null)
             {
@@ -110,6 +125,11 @@ namespace SeparateSpawns.Patches
     {
         private static bool Prefix(TeleportWorld __instance, Player player)
         {
+            if (!GroupPortalMarker.IsProtectedPortal(__instance.gameObject))
+            {
+                return true;
+            }
+
             var marker = GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject);
             if (marker == null)
             {
@@ -137,14 +157,44 @@ namespace SeparateSpawns.Patches
     {
         private static bool Prefix(WearNTear __instance, ref bool __result)
         {
-            if (__instance.GetComponent<GroupPortalMarker>() != null ||
-                GroupPortalMarker.AttachFromZdoIfNeeded(__instance.gameObject) != null)
+            if (!GroupPortalMarker.IsProtectedPortal(__instance.gameObject))
             {
-                __result = false;
-                return false;
+                return true;
             }
 
-            return true;
+            __result = false;
+            return false;
+        }
+    }
+
+    // Hammer dismantle is Player.RemovePiece, not WearNTear.ApplyDamage. The
+    // damage prefix cannot stop or allow a middle-click / build-menu remove.
+    [HarmonyPatch(typeof(Player), "RemovePiece")]
+    internal static class PlayerRemovePiecePatch
+    {
+        private static bool Prefix(Player __instance, int ___m_removeRayMask, Transform ___m_eye, ref bool __result)
+        {
+            if (GameCamera.instance == null || ___m_eye == null)
+            {
+                return true;
+            }
+
+            var camera = GameCamera.instance.transform;
+            if (!Physics.Raycast(camera.position, camera.forward, out var hit, 50f, ___m_removeRayMask) ||
+                Vector3.Distance(hit.point, ___m_eye.position) >= __instance.m_maxPlaceDistance)
+            {
+                return true;
+            }
+
+            var piece = hit.collider != null ? hit.collider.GetComponentInParent<Piece>() : null;
+            if (piece == null || !GroupPortalMarker.IsProtectedPortal(piece.gameObject))
+            {
+                return true;
+            }
+
+            __result = false;
+            __instance.Message(MessageHud.MessageType.Center, "This group portal cannot be removed.");
+            return false;
         }
     }
 }

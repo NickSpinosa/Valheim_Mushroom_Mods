@@ -62,7 +62,7 @@ The stable per-account identifier (e.g. `Steam_7656...`) used in the group confi
 _Avoid_: Character name, player name
 
 **Group Portal**:
-A mod-placed portal pair linking a Group Spawn to the Sacrificial Stones. Stones-end portals sit evenly on a circle around the stones. Starts inactive; a Group member activates the whole pair permanently by paying 2 surtling cores at the Group Spawn end. Only members of the owning Group may teleport through it (enforced at both ends). Indestructible, fixed pairing (no re-tagging), vanilla item-teleport rules apply. Placement retries up to 3 nearby spots if spawn fails.
+A mod-placed portal pair linking a Group Spawn to the Sacrificial Stones. Stones-end portals sit evenly on a circle around the stones. Starts inactive; a Group member activates the whole pair permanently by paying 2 surtling cores at the Group Spawn end. Only members of the owning Group may teleport through it (enforced at both ends). Indestructible, fixed pairing (no re-tagging), vanilla item-teleport rules apply. A portal a player crafts from the hammer is not a Group Portal: it stays hammer-removable and its tag can be changed. Placement retries up to 3 nearby spots if spawn fails.
 
 **Sacrificial Stones**:
 The vanilla world-center spawn location (the `StartTemple` location). Group Spawns must keep their distance from it; Group Portals lead to it.

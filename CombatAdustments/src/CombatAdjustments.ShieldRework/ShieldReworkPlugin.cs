@@ -15,7 +15,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.8.0";
+    public const string PluginVersion = "0.9.0";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -70,6 +70,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> OceanThunderStormChance = null!;
 
     internal static ConfigEntry<bool> EnableUncapHealthScaling = null!;
+    internal static ConfigEntry<bool> IgnoreBossNightSpawns = null!;
 
     /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
     internal static ConfigSync Sync = null!;
@@ -155,6 +156,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
         EnableUncapHealthScaling = ModConfig.Bind("Difficulty", "EnableUncapHealthScaling", true,
             "Let effective enemy HP keep scaling with nearby players past vanilla's 5-player cap (+30% per extra player). Enemy damage dealt stays capped at 5.");
+        IgnoreBossNightSpawns = ModConfig.Bind("Spawns", "IgnoreBossNightSpawns", true,
+            "Night-only world spawners that require a boss-defeat key do not run (meadows greydwarfs after Eikthyr, skeletons after Bonemass, seekers after the Queen, charred after Fader, and the same shape for later bosses). Biome night spawns that are not gated on a boss, and boss raids, are unchanged.");
 
         Sync.Register(
             EnableStaggerGrant,
@@ -180,7 +183,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             SailingCalmWindCeiling,
             EnableOceanStormChance,
             OceanThunderStormChance,
-            EnableUncapHealthScaling);
+            EnableUncapHealthScaling,
+            IgnoreBossNightSpawns);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
         // bookkeeping, SyncConfigInMultiplayer is the opt-out itself - a client

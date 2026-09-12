@@ -52,7 +52,7 @@ Every Group Spawn must satisfy all of the following:
 - If a portal fails to place, the mod retries up to 3 nearby positions.
 - Portals start inactive. A member of the owning group activates the pair permanently by interacting with the Group Spawn end while carrying 2 surtling cores (consumed; single interaction; no partial deposits; payment only at the spawn end).
 - Only members of the owning group may teleport through, enforced at both ends.
-- Portals are indestructible, their pairing is fixed (no tag editing), and vanilla item-teleport restrictions apply.
+- Group portals are indestructible, their pairing is fixed (no tag editing), and vanilla item-teleport restrictions apply. Portals a player crafts from the hammer are ordinary pieces: they can be dismantled, and their tags can be set normally.
 
 ## Build and install
 

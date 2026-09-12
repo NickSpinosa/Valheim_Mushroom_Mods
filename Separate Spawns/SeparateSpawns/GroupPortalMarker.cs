@@ -83,6 +83,65 @@ namespace SeparateSpawns
             return true;
         }
 
+        public static bool IsGroupPortal(string groupName)
+        {
+            return !string.IsNullOrEmpty(groupName);
+        }
+
+        // The marker's GroupName is not enough. That component can be copied
+        // onto every crafted portal from the shared prefab, and a copied name
+        // would lock the tag editor and the hammer. Only the instance ZDO key
+        // means this portal was placed by the mod.
+        public static bool IsProtectedPortal(GameObject go)
+        {
+            if (go == null)
+            {
+                return false;
+            }
+
+            var zdo = go.GetComponent<ZNetView>()?.GetZDO();
+            return zdo != null && IsGroupPortal(zdo.GetString(ZdoGroupKey));
+        }
+
+        public static void StripMarkerFromSharedPrefabs()
+        {
+            var prefabs = Game.instance != null ? Game.instance.m_portalPrefabs : null;
+            if (prefabs == null)
+            {
+                return;
+            }
+
+            foreach (var prefab in prefabs)
+            {
+                if (prefab == null)
+                {
+                    continue;
+                }
+
+                var leaked = prefab.GetComponent<GroupPortalMarker>();
+                if (leaked == null)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(leaked, allowDestroyingAssets: true);
+                ModLog.Info("Removed GroupPortalMarker from the shared portal prefab so crafted portals stay ordinary pieces.");
+            }
+        }
+
+        // Instance only. Never write Piece fields on Game.m_portalPrefabs — that
+        // object is the piece players craft from the hammer.
+        public static void ApplyHammerRemoval(GameObject go)
+        {
+            var piece = go != null ? go.GetComponent<Piece>() : null;
+            if (piece == null)
+            {
+                return;
+            }
+
+            piece.m_canBeRemoved = !IsProtectedPortal(go);
+        }
+
         public static GroupPortalMarker AttachFromZdoIfNeeded(GameObject go)
         {
             if (go == null)
@@ -93,13 +152,23 @@ namespace SeparateSpawns
             var existing = go.GetComponent<GroupPortalMarker>();
             if (existing != null)
             {
-                existing.SyncFromZdo();
-                if (string.IsNullOrEmpty(existing.GroupName))
+                var existingZdo = go.GetComponent<ZNetView>()?.GetZDO();
+                if (existingZdo == null || !IsGroupPortal(existingZdo.GetString(ZdoGroupKey)))
                 {
-                    existing.LoadFromZdo();
+                    // Valid ZDO and no group key: this is a crafted portal that
+                    // inherited a marker. Drop the copied name so it cannot lock
+                    // the tag editor. No ZDO yet means wait — do not guess.
+                    if (existingZdo != null)
+                    {
+                        existing.GroupName = null;
+                    }
+
+                    return null;
                 }
 
-                return string.IsNullOrEmpty(existing.GroupName) ? null : existing;
+                existing.LoadFromZdo();
+                ApplyHammerRemoval(go);
+                return existing;
             }
 
             var nview = go.GetComponent<ZNetView>();
@@ -118,6 +187,7 @@ namespace SeparateSpawns
             var marker = go.AddComponent<GroupPortalMarker>();
             marker.EnsureActivateRpcRegistered();
             marker.LoadFromZdo();
+            ApplyHammerRemoval(go);
             return marker;
         }
 
@@ -150,6 +220,10 @@ namespace SeparateSpawns
             GroupName = groupName;
             IsSpawnEnd = isSpawnEnd;
             Activated = activated;
+            // Before the owner check. Awake already ran and would have treated
+            // this instance as a crafted portal, because the group key is not
+            // on the ZDO yet.
+            ApplyHammerRemoval(gameObject);
 
             if (_nview == null)
             {

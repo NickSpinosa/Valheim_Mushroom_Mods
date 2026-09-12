@@ -68,6 +68,15 @@ cap (+30% per extra player). Enemy damage dealt stays capped at 5. Toggle with
 `Difficulty.EnableUncapHealthScaling` (default **true**). See
 [`docs/boss-hp-scaling.md`](../../docs/boss-hp-scaling.md).
 
+### Night spawns
+
+Killing a boss does not add the extra night spawns that vanilla turns on with
+that boss key (meadows greydwarfs after Eikthyr, skeletons after Bonemass,
+seekers after the Queen, and the same shape for later bosses). A biome's own
+night spawns, and boss raids, are unchanged. Toggle with
+`Spawns.IgnoreBossNightSpawns` (default **true**). See
+[`docs/night-spawns.md`](../../docs/night-spawns.md).
+
 ## Install
 
 1. Requires [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) for Valheim.
@@ -120,6 +129,9 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   ThunderStorm target chance (default **21%**, vanilla ~7%).
 - `Difficulty.EnableUncapHealthScaling` — keep effective enemy HP scaling past
   5 nearby players (default **true**). Enemy damage stays capped.
+- `Spawns.IgnoreBossNightSpawns` — night-only world spawners that require a
+  boss-defeat key do not run (default **true**). Biome night spawns and raids
+  are unchanged.
 
 ### Multiplayer config sync
 
