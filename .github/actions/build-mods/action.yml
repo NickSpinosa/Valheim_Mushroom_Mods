@@ -20,6 +20,14 @@ inputs:
   dotnet-version:
     required: false
     default: '9.0.x'
+  thunderstore-namespace:
+    description: >-
+      Thunderstore team the per-mod packages are built for. Baked into each
+      manifest's dependency on Mushroom Sync, so it must be the real team name
+      for a release. Empty packages under a placeholder so CI still exercises
+      the step.
+    required: false
+    default: ''
 
 outputs:
   artifacts-dir:
@@ -30,6 +38,11 @@ outputs:
       Zip holding a plugins/ folder with every mod's DLL. Extracting it into a
       Valheim BepInEx/ directory installs the lot.
     value: MushroomMods-plugins.zip
+  thunderstore-dir:
+    description: >-
+      Directory holding one Thunderstore package zip per mod plus packages.json,
+      the index the publish script reads.
+    value: thunderstore-packages
 
 runs:
   using: composite
@@ -219,3 +232,16 @@ runs:
         $entries = [IO.Compression.ZipFile]::OpenRead($zipPath).Entries | ForEach-Object { $_.FullName }
         Write-Host "MushroomMods-plugins.zip contains $($entries.Count) file(s):"
         $entries | ForEach-Object { Write-Host "  $_" }
+
+    - name: Package for Thunderstore
+      shell: pwsh
+      env:
+        THUNDERSTORE_NAMESPACE: ${{ inputs.thunderstore-namespace }}
+      run: |
+        # One zip per mod, versioned from each DLL's BepInPlugin attribute. Built
+        # on every run so a broken manifest, icon or README fails CI rather than
+        # the release. Only the release workflow uploads them.
+        & .github/scripts/Build-ThunderstorePackages.ps1 `
+          -ArtifactsDir release-artifacts `
+          -OutDir thunderstore-packages `
+          -Namespace $env:THUNDERSTORE_NAMESPACE

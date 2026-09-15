@@ -1,0 +1,6 @@
+{
+  "dll": "HaldorExpansion.dll",
+  "description": "Adds gathering materials to Haldor's stock to relieve resource scarcity on a long-lived server, plus the placeable Super Mist Torch. Stock and prices are set on the server.",
+  "readme": "haldor-expansion/README.md",
+  "categories": ["npcs", "tweaks", "server-side", "client-side"]
+}

@@ -1,0 +1,6 @@
+{
+  "dll": "CraftableSpawners.dll",
+  "description": "Build natural creature spawners with the hammer: greydwarf nest, evil bone pile, body pile, fire pillar and tar bone pile. Each unlocks with its trophy, refunds on removal, and keeps vanilla spawn behaviour.",
+  "readme": "thunderstore/CraftableSpawners/README.md",
+  "categories": ["building", "crafting", "server-side", "client-side"]
+}

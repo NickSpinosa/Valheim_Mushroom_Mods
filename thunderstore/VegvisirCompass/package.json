@@ -1,0 +1,6 @@
+{
+  "dll": "VegvisirCompass.dll",
+  "description": "Loot a limited-use compass from a Vegvisir that points you at its boss instead of revealing it on the map. Made for no-map servers.",
+  "readme": "vegvisir-compass/README.md",
+  "categories": ["utility", "gear", "server-side", "client-side"]
+}

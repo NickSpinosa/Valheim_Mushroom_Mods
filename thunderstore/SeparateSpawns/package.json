@@ -1,0 +1,6 @@
+{
+  "dll": "SeparateSpawns.dll",
+  "description": "Splits players into groups at world creation, each with its own starting area and a private portal back to the world centre. Built for large no-map servers.",
+  "readme": "Separate Spawns/README.md",
+  "categories": ["world-generation", "server-side", "client-side"]
+}

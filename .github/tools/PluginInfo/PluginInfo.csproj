@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Reads the BepInPlugin and BepInDependency attributes straight out of built
+    plugin DLLs, without loading them, so the Thunderstore packager can take each
+    mod's version from the one place BepInEx itself reads it. Lives under .github
+    so the mod build's project discovery (which skips dot-directories) never
+    treats it as a mod.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+</Project>
