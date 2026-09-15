@@ -35,6 +35,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/build-mods
+        with:
+          thunderstore-namespace: ${{ vars.THUNDERSTORE_NAMESPACE }}
 
       # The same zip a release ships, so testing a PR build is the same motion as
       # installing a release: extract it into BepInEx/.

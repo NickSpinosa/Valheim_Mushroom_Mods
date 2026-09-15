@@ -7,10 +7,12 @@ before you rely on it.
 |---|---|
 | [`.github/actions/build-mods`](../.github/actions/build-mods/action.yml) | Fetches the reference assemblies, builds every mod, and packages the DLLs. All the real logic lives here |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — **CI** | Compile check on every push and pull request |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) — **Build mod DLLs** | Same build, plus packaging the DLLs and attaching them to a release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) — **Build mod DLLs** | Same build, plus attaching the DLLs to a release and publishing each mod to Thunderstore |
+| [`.github/scripts/`](../.github/scripts/) | The Thunderstore packaging and publish steps, as scripts so they run locally too |
+| [`thunderstore/`](../thunderstore/) | One folder per mod: its Thunderstore description, categories, icon, and README pointer |
 
 Both workflows call the same composite action, so a change to how the mods are
-built lands in both at once. Only the release upload is workflow-specific.
+built lands in both at once. Only the uploads are workflow-specific.
 
 ## Compile checks
 
@@ -105,6 +107,92 @@ file literally named `plugins\Foo.dll` instead of a folder. Runner `pwsh` is
 new enough to get it right on its own, but the packaging step does not rely on
 that.
 
+The same release run then publishes each mod to Thunderstore. That is its own
+section below, because it has its own rules about versions.
+
+## Publishing to Thunderstore
+
+Every mod is its own Thunderstore package, published under one team. The
+release workflow does it after attaching the zip; a `workflow_dispatch` with
+`publish_thunderstore` ticked does it on demand, for redoing an upload that
+failed.
+
+### One-time setup
+
+The workflow refuses to publish, with a warning rather than a failure, until
+both of these exist in the repository settings:
+
+1. **`THUNDERSTORE_NAMESPACE`** (Actions *variable*) — the team name on
+   thunderstore.io. Create the team under your account first; the name is also
+   the prefix of every package id (`Team-MushroomSync-1.0.0`).
+2. **`THUNDERSTORE_TOKEN`** (Actions *secret*) — a **service account** token
+   for that team, created on the team's settings page. It is read through the
+   `TCLI_AUTH_TOKEN` environment variable and never appears on a command line.
+
+The namespace is a variable, not a secret, because it is baked into every
+manifest: a mod that depends on Mushroom Sync declares
+`<namespace>-MushroomSync-<version>`, so the packaging step needs it too. CI
+runs without it under a placeholder namespace, which is fine for checking that
+packaging still works and useless for uploading.
+
+### Versions come from the DLL, and must be bumped
+
+The package version is the **`BepInPlugin` attribute's version** — the number
+BepInEx logs at startup — read out of the built DLL by
+[`.github/tools/PluginInfo`](../.github/tools/PluginInfo/Program.cs). It is not
+the csproj `<Version>` (not every project keeps one) and not the release tag
+(the mods do not share a version).
+
+Thunderstore rejects a re-upload of an existing version. The publish script
+therefore checks each package's version against the API first and **skips the
+ones already there**, so a release that changed one mod uploads one package
+and a release that changed nothing uploads nothing and says so. The flip side:
+**a mod whose plugin version was not bumped does not reach Thunderstore**, even
+if its code changed. Bump the version in the plugin's `BepInPlugin` attribute
+as part of any change you want players to receive through a mod manager.
+Thunderstore only accepts `Major.Minor.Patch`, and the packaging step fails on
+anything else.
+
+### What goes in a package
+
+`thunderstore/<PackageName>/` holds, per mod:
+
+- `package.json` — which DLL the package wraps, a description of at most 250
+  characters, the repo-relative path of the README to ship, and the
+  Thunderstore category slugs. Optional `dependencies` lists Thunderstore ids
+  of mods outside this repo.
+- `icon.png` — 256×256, the only size Thunderstore accepts. The current ones
+  are placeholders drawn by a script; replace them with real art whenever.
+- `README.md` — only for mods that have no README of their own; the others
+  point `package.json` at the mod's README.
+
+The folder name is the package name: letters, digits and underscores only, so
+`CombatAdjustments` rather than `CombatAdjustments.ShieldRework`.
+
+Dependencies between the repo's own mods are **derived from their
+`BepInDependency` attributes**, not written down: the packager maps each GUID
+to the package that provides it and pins that package's current version. A
+`BepInDependency` on a GUID no package here provides fails the packaging step
+with a message saying to add it under `dependencies`. `BepInExPack_Valheim` is
+pinned to whatever Thunderstore lists as latest at packaging time, the same
+resolution the build action uses to fetch it. Packages publish in dependency
+order, so Mushroom Sync goes up before anything that requires it.
+
+### Running it locally
+
+```bash
+.github/scripts/Build-ThunderstorePackages.ps1 -ArtifactsDir release-artifacts -OutDir thunderstore-packages -Namespace <team>
+.github/scripts/Publish-ThunderstorePackages.ps1 -PackagesDir thunderstore-packages -DryRun
+```
+
+Both run under Windows PowerShell 5.1 as well as `pwsh`. The dry run writes the
+`tcli` config for each package and prints what it would publish; drop `-DryRun`
+with `TCLI_AUTH_TOKEN` set and `tcli` installed (`dotnet tool install -g tcli`)
+to publish for real. `tcli publish --file` still wants a project config for the
+namespace, community and categories, so the script generates one per package
+in a temp directory. The `[build]` section in it is filler: `tcli` validates
+that it exists even though `--file` means nothing gets built.
+
 ## How CI gets the game assemblies
 
 The mods reference Valheim and BepInEx assemblies, which cannot be committed.
@@ -163,6 +251,11 @@ new mod directory needs no workflow change. It does need two things:
 2. **Add any new reference to the verify step's list.** The workflow checks the
    union of every assembly the mods need before building, so a missing one
    produces a named failure instead of a wall of `CS0246`.
+
+3. **Add a `thunderstore/<PackageName>/` folder** with `package.json` and a
+   256×256 `icon.png`, as described under *Publishing to Thunderstore*. The
+   packaging step fails the build for any built DLL without one, so a new mod
+   cannot quietly miss Thunderstore.
 
 Projects under `bin/`, `obj/`, `tools/` and `Decompiled/` are skipped — they are
 build output, dev tooling, and decompiled game source respectively, none of them
@@ -274,6 +367,18 @@ a cache hit. The reference tree was restored instead of refetched.
 **`Attach the plugins folder to the release` skipped** — the run was a dispatch
 with no `release_tag`. Only a published release or an explicit tag triggers the
 upload.
+
+**`Thunderstore publish skipped: set the THUNDERSTORE_TOKEN secret ...`** — the
+one-time setup under *Publishing to Thunderstore* has not been done. The
+release itself is fine.
+
+**`No Thunderstore package had a new version.`** — every mod's plugin version
+already exists on Thunderstore, so there was nothing to upload. If a mod did
+change, its `BepInPlugin` version was not bumped.
+
+**`No Thunderstore namespace given; packaging under placeholder`** — a CI run
+without the `THUNDERSTORE_NAMESPACE` variable. The packages it builds are for
+checking the step, not for uploading.
 
 ## Never commit
 

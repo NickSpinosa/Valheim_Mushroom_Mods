@@ -1,0 +1,6 @@
+{
+  "dll": "MushroomSync.dll",
+  "description": "Shared server-authoritative config sync used by the other Mushroom mods. No gameplay of its own. Required by Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil.",
+  "readme": "MushroomSync/README.md",
+  "categories": ["libraries", "server-side", "client-side"]
+}

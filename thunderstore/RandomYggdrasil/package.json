@@ -1,0 +1,6 @@
+{
+  "dll": "RandomYggdrasil.dll",
+  "description": "Randomises the Yggdrasil branch rotation per world so the sky no longer gives away direction, synced from the server to every client.",
+  "readme": "thunderstore/RandomYggdrasil/README.md",
+  "categories": ["world-generation", "server-side", "client-side"]
+}

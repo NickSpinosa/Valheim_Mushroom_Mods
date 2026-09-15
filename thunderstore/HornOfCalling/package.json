@@ -1,0 +1,6 @@
+{
+  "dll": "HornOfCalling.dll",
+  "description": "Craft a horn at the Workbench that sounds a blast other players hear out to 64 m. Made for no-map servers where finding each other is part of the game.",
+  "readme": "HornOfCalling/README.md",
+  "categories": ["crafting", "gear", "server-side", "client-side"]
+}

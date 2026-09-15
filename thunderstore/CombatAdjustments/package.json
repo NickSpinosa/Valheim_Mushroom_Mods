@@ -1,0 +1,6 @@
+{
+  "dll": "CombatAdjustments.ShieldRework.dll",
+  "description": "Shield stagger, durability and tower block-armor rework, with feast stats, sailing tweaks and boss HP scaling. Settings are set on the server and follow every client.",
+  "readme": "CombatAdustments/src/CombatAdjustments.ShieldRework/README.md",
+  "categories": ["tweaks", "server-side", "client-side"]
+}

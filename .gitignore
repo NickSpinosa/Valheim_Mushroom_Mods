@@ -2,6 +2,7 @@
 # Reference assemblies fetched by .github/workflows/release.yml.
 ci-refs/
 release-artifacts/
+thunderstore-packages/
 
 # ---- Build output ----
 # No built DLL is committed; releases carry the artifacts.
