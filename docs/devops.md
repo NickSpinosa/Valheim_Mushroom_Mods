@@ -117,6 +117,14 @@ release workflow does it after attaching the zip; a `workflow_dispatch` with
 `publish_thunderstore` ticked does it on demand, for redoing an upload that
 failed.
 
+After publishing, the workflow appends an **On Thunderstore** table to the
+release notes, one row per mod linking its package page and saying whether
+this release uploaded it or it was already there. GitHub releases have no
+comments, so the notes are where the links live. The section sits between
+hidden `thunderstore-links` markers and is replaced, not duplicated, when the
+workflow runs again for the same tag. Edit the notes above the markers freely;
+anything inside them is overwritten.
+
 ### One-time setup
 
 The workflow refuses to publish, with a warning rather than a failure, until
