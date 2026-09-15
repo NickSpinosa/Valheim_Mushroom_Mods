@@ -82,8 +82,13 @@ jobs:
           TCLI_AUTH_TOKEN: ${{ secrets.THUNDERSTORE_TOKEN }}
           THUNDERSTORE_NAMESPACE: ${{ vars.THUNDERSTORE_NAMESPACE }}
         run: |
-          if (-not $env:TCLI_AUTH_TOKEN -or -not $env:THUNDERSTORE_NAMESPACE) {
-            Write-Host '::warning::Thunderstore publish skipped: set the THUNDERSTORE_TOKEN secret and THUNDERSTORE_NAMESPACE variable in the repository settings. See docs/devops.md.'
+          # Named separately: a secret that exists but was saved with an empty
+          # value looks exactly like one that was never created.
+          $missing = @()
+          if (-not $env:THUNDERSTORE_NAMESPACE) { $missing += 'the THUNDERSTORE_NAMESPACE variable' }
+          if (-not $env:TCLI_AUTH_TOKEN) { $missing += 'the THUNDERSTORE_TOKEN secret (it exists but is empty if it appears in the repository settings)' }
+          if ($missing) {
+            Write-Host "::warning::Thunderstore publish skipped: $($missing -join ' and ') is not set. See docs/devops.md."
             exit 0
           }
 
