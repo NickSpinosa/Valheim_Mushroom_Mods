@@ -104,15 +104,26 @@ function Write-TcliConfig($pkg, [string] $path) {
 $configRoot = Join-Path ([IO.Path]::GetTempPath()) ("tcli-" + [IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force -Path $configRoot | Out-Null
 
-$published = @(); $skipped = @()
+$published = @(); $skipped = @(); $results = @()
 foreach ($pkg in $ordered) {
     $id = "$namespace-$($pkg.name)-$($pkg.version)"
     $zip = Join-Path $PackagesDir $pkg.zip
     if (-not (Test-Path $zip)) { throw "Missing $zip" }
 
+    # Recorded whatever happens, so the release notes can link every package,
+    # not only the ones this run uploaded.
+    $result = [ordered]@{
+        name    = $pkg.name
+        version = $pkg.version
+        url     = "$Repository/c/$Community/p/$namespace/$($pkg.name)/"
+        status  = 'dry-run'
+    }
+    $results += $result
+
     if (-not $DryRun -and (Test-Published $namespace $pkg.name $pkg.version)) {
         Write-Host "$id is already on Thunderstore; skipping."
         $skipped += $id
+        $result.status = 'already-published'
         continue
     }
 
@@ -131,7 +142,12 @@ foreach ($pkg in $ordered) {
     if ($LASTEXITCODE -ne 0) { throw "tcli publish failed for $id" }
     Write-Host '::endgroup::'
     $published += $id
+    $result.status = 'published'
 }
+
+# Read by Add-ThunderstoreReleaseNotes.ps1.
+$summary = [ordered]@{ namespace = $namespace; community = $Community; packages = $results }
+[IO.File]::WriteAllText((Join-Path $PackagesDir 'publish-result.json'), ($summary | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host ''
 Write-Host "Published: $(if ($published) { $published -join ', ' } else { 'nothing' })"

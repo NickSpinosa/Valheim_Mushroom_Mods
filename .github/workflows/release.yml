@@ -91,3 +91,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Could not install the Thunderstore CLI.' }
 
           & .github/scripts/Publish-ThunderstorePackages.ps1 -PackagesDir thunderstore-packages
+
+      # Releases have no comments, so the links go into the release notes: an
+      # "On Thunderstore" table, one row per mod. The section replaces itself on
+      # a re-run. Runs only when the publish step actually ran (it writes the
+      # result file) and there is a release to edit.
+      - name: Link the Thunderstore packages from the release
+        if: >-
+          (github.event_name == 'release' || inputs.release_tag != '') &&
+          hashFiles('thunderstore-packages/publish-result.json') != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          & .github/scripts/Add-ThunderstoreReleaseNotes.ps1 `
+            -ResultPath thunderstore-packages/publish-result.json `
+            -ReleaseTag $env:RELEASE_TAG
