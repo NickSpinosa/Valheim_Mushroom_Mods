@@ -34,7 +34,7 @@ mod does not have it yet.
 | Mod | Docs |
 |---|---|
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md`, `docs/sailing.md`, `docs/boss-hp-scaling.md`, `docs/valheim-1.0.md` |
-| CraftableSpawners | `docs/design_decisions.md`, `docs/valheim-1.0-buildui.md` |
+| CraftableSpawners | `docs/design_decisions.md`, `docs/valheim-1.0-buildui.md`, `docs/znetscene-rejoin.md` |
 | MushroomSync | `docs/DESIGN.md` |
 | Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/world-lifecycle.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md` |
 | haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md`, `docs/placeable-item.md` |
