@@ -26,7 +26,7 @@ public sealed class CraftableSpawnersPlugin : BaseUnityPlugin
 {
     public const string PluginID = "Gonfreecss.CraftableSpawners";
     public const string PluginName = "CraftableSpawners";
-    public const string Version = "0.2.0";
+    public const string Version = "0.2.1";
 
     internal static ManualLogSource Log = new($" {PluginName}");
     internal static ModConfig Settings;
