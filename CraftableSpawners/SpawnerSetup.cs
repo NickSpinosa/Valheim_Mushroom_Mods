@@ -12,13 +12,23 @@ internal static class SpawnerSetup
 
     internal static void EnsureInitialized()
     {
+        ZNetScene scene = ZNetScene.instance;
+
         if (initialized)
         {
+            // Leaving a world destroys ZNetScene, and the next join builds a new one
+            // with an empty prefab table. The clones outlive that (DontDestroyOnLoad),
+            // but the new instance has to be told about them again or a client that
+            // rejoins cannot create a placed spawner from its ZDO: the spawner turns
+            // invisible for that client and nothing is logged but a Unity warning.
+            // See docs/znetscene-rejoin.md.
+            if (scene)
+                RegisterAllPrefabs(scene);
+
             RefreshFromConfig();
             return;
         }
 
-        ZNetScene scene = ZNetScene.instance;
         if (!scene || ObjectDB.instance == null)
             return;
 
@@ -339,13 +349,35 @@ internal static class SpawnerSetup
             piece.m_icon = trophyDrop.m_itemData.GetIcon();
     }
 
-    private static void RegisterPrefab(ZNetScene scene, GameObject prefab)
+    /// <summary>Returns true when this scene instance did not know the prefab yet.</summary>
+    private static bool RegisterPrefab(ZNetScene scene, GameObject prefab)
     {
         if (!scene.m_prefabs.Contains(prefab))
             scene.m_prefabs.Add(prefab);
 
         int hash = scene.GetPrefabHash(prefab);
+        bool added = !scene.m_namedPrefabs.ContainsKey(hash);
         scene.m_namedPrefabs[hash] = prefab;
+        return added;
+    }
+
+    /// <summary>
+    /// Registers every built clone with the given ZNetScene. Runs on each
+    /// ZNetScene.Awake, so each world join gets the prefabs the previous instance
+    /// had. The log line is deliberate: one per join is the quickest way to tell,
+    /// from a client log, whether this ran.
+    /// </summary>
+    private static void RegisterAllPrefabs(ZNetScene scene)
+    {
+        int added = 0;
+        foreach (SpawnerDef def in SpawnerCatalog.All)
+        {
+            if (def.Prefab && RegisterPrefab(scene, def.Prefab))
+                added++;
+        }
+
+        if (added > 0)
+            CraftableSpawnersPlugin.Log.LogInfo($"Registered {added} spawner prefab(s) with ZNetScene.");
     }
 
     internal static void RefreshFromConfig()

@@ -57,3 +57,4 @@
 - Output: `bin/Release/CraftableSpawners.dll` **and** `MushroomSync/bin/Release/MushroomSync.dll` → copy both to `BepInEx/plugins/`, or use the release's `MushroomMods-plugins.zip`
 - Clone prefab names: `CS_BonePileSpawner`, `CS_GreydwarfNest`, `CS_DraugrPile`, `CS_FirePillar`, `CS_TarBonePile`
 - Valheim 1.0 replaced the category grid with a tag-driven build UI. What that means for the pieces this mod adds — and which Harmony targets were re-checked against 1.0.7 — is in [valheim-1.0-buildui.md](valheim-1.0-buildui.md).
+- `ZNetScene` is destroyed and rebuilt on every world join, so prefab registration runs on every `ZNetScene.Awake`, not once per game launch. The bug that taught this, and how to read it out of a client log, is in [znetscene-rejoin.md](znetscene-rejoin.md).
