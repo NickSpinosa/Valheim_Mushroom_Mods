@@ -74,11 +74,17 @@ static class Patches
     {
         static void Postfix(SpawnArea __instance, bool __result)
         {
+            // Every spawn attempt of every craftable spawner, every ten seconds: a
+            // diagnostic, so it is off unless debug messages are on. Checked first so the
+            // common case costs nothing - this postfix sees vanilla spawners too.
+            if (CraftableSpawnersPlugin.Settings is not { EnableDebugMessages: true })
+                return;
+
             if (!SpawnerSetup.IsCraftableSpawner(__instance))
                 return;
 
             CraftableSpawnersPlugin.Log.LogInfo(
-                $"[DEBUG-unlock] SpawnOne on {__instance.name} => {__result} " +
+                $"SpawnOne on {__instance.name} => {__result} " +
                 $"(prefabs={__instance.m_prefabs?.Count ?? 0}, interval={__instance.m_spawnIntervalSec})");
         }
     }

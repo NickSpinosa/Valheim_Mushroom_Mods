@@ -44,6 +44,7 @@ namespace SeparateSpawns.Patches
             private static void Postfix()
             {
                 WorldBootstrap.Shutdown();
+                GameFindSpawnPointPatch.ResetSpawnWait();
                 ModLog.Info("World unloaded; Separate Spawns state cleared for the next one.");
             }
         }

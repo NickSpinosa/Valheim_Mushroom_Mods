@@ -15,11 +15,13 @@ namespace SeparateSpawns
         public static bool ClientHasRoster { get; private set; }
 
         private static string _lastAssignmentRequest;
+        private static string _lastAppliedPayload;
 
         public static void ResetClientState()
         {
             ClientHasRoster = false;
             _lastAssignmentRequest = null;
+            _lastAppliedPayload = null;
         }
 
         public static void Register()
@@ -54,7 +56,11 @@ namespace SeparateSpawns
             LogRosterSummary();
         }
 
-        public static void RequestFromServer()
+        /// <param name="direct">
+        /// False when the caller has already sent the direct request this pass; one
+        /// direct request returns both the roster and the layout.
+        /// </param>
+        public static void RequestFromServer(bool direct = true, bool quiet = false)
         {
             if (ZNet.instance == null || ZNet.instance.IsServer())
             {
@@ -66,8 +72,16 @@ namespace SeparateSpawns
                 return;
             }
 
-            ModLog.Info("Requesting group roster from server...");
-            DirectPeerSync.RequestFromServer();
+            if (!quiet)
+            {
+                ModLog.Info("Requesting group roster from server...");
+            }
+
+            if (direct)
+            {
+                DirectPeerSync.RequestFromServer(quiet);
+            }
+
             if (ZRoutedRpc.instance != null)
             {
                 ZRoutedRpc.instance.InvokeRoutedRPC(RequestRpcName, ZNet.GetUID());
@@ -178,12 +192,21 @@ namespace SeparateSpawns
                 return;
             }
 
+            // The same roster arrives over both channels and again on every retry while
+            // the layout is outstanding. Re-applying it changes nothing, and printing
+            // every member of every group each time was most of a client's log.
+            if (ClientHasRoster && string.Equals(payload, _lastAppliedPayload, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
             try
             {
                 var roster = GroupRoster.FromJson(payload);
                 Plugin.SetRoster(roster);
                 ClientHasRoster = true;
                 _lastAssignmentRequest = null;
+                _lastAppliedPayload = payload;
                 ModLog.Info($"Received group roster from server ({source}).");
                 LogRosterSummary();
             }

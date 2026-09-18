@@ -86,3 +86,12 @@ The group roster itself is deliberately **not** per-world: `SeparateSpawns.group
 is global membership and should survive a world change. Only the spawn *difficulty*
 values written into it are world-derived, and those are recalculated per world from the
 frozen spawn positions.
+
+## A third piece of per-world state, found later
+
+`GameFindSpawnPointPatch._spawnWaitStartedAt`, the clock behind the 300 s wait for
+the roster and layout, was a static that nothing reset. A wait begun in one session
+kept counting through the main menu and expired seventeen seconds into the next. It is
+cleared in the same `ZNet.OnDestroy` postfix now. The story is in
+[valheim-1.0-locations-generated.md](valheim-1.0-locations-generated.md); the lesson is
+the rule above, unchanged: a static that describes a world is reset when the world goes.

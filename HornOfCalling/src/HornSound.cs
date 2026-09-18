@@ -143,14 +143,23 @@ namespace HornOfCalling
                 // most likely to fail here is the headless server, where AudioClip
                 // decoding is the least exercised. ZSFX.Play() short-circuits on an
                 // empty clip array, so the cost of a failed decode is one silent peer.
-                AudioClip clip = LoadClip();
+                //
+                // A dedicated server is not asked to decode at all. It has no audio
+                // device: AudioClip.Create hands back a clip with no sample storage, so
+                // SetData fails ("AudioClip contains no data") and the result reports a
+                // length of 0.0s at 0 Hz. Nothing listens there, so the empty array is
+                // the right content and the Unity error is just noise in the server log.
+                bool headless = Application.isBatchMode;
+                AudioClip clip = headless ? null : LoadClip();
                 sfx.m_audioClips = clip != null ? new[] { clip } : new AudioClip[0];
 
                 Plugin.Log.LogInfo(
                     "Built the horn blast from " + template.name + " (" +
                     (clip != null
                         ? clip.length.ToString("0.0") + "s, " + clip.frequency + " Hz"
-                        : "no audio - the blast will be silent on this peer") +
+                        : headless
+                            ? "no audio decoded - dedicated server"
+                            : "no audio - the blast will be silent on this peer") +
                     "), audible to " + MaxDistance.ToString("0") + " m.");
             }
 

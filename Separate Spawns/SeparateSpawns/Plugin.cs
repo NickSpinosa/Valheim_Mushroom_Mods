@@ -12,7 +12,7 @@ namespace SeparateSpawns
     {
         public const string PluginGuid = "abortipus.separatespawns";
         public const string PluginName = "Separate Spawns";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         internal static Plugin Instance { get; private set; }
         internal static ModConfig ConfigValues { get; private set; }

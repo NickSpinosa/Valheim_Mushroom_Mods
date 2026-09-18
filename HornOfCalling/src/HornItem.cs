@@ -47,6 +47,10 @@ namespace HornOfCalling
         private static GameObject _prefabContainer;
         private static Recipe _recipe;
 
+        /// <summary>The list <see cref="_recipe"/> currently sits in, so it can be taken
+        /// back out of that list - not merely the current ObjectDB's - when rebuilt.</summary>
+        private static List<Recipe> _recipeList;
+
         /// <summary>Latches the "no such station" warning to once per session. See
         /// <see cref="FindStation"/> for why it would otherwise repeat forever.</summary>
         private static bool _stationWarningLogged;
@@ -93,6 +97,13 @@ namespace HornOfCalling
         {
             if (_prefab == null || odb == null || odb.m_recipes == null) return;
 
+            // The same gate EnsureRegistered uses. The start scene's ObjectDB runs Awake
+            // with an empty item list and is only filled by CopyOtherDB afterwards, so on
+            // every return to the main menu the first call here found a workbench (left
+            // over from the world just unloaded) but no Bronze, and logged an error for
+            // what is only ordering. CopyOtherDB's own postfix retries a moment later.
+            if (odb.GetItemPrefab("Wood") == null) return;
+
             ItemDrop item = _prefab.GetComponent<ItemDrop>();
             if (item == null) return;
 
@@ -106,7 +117,19 @@ namespace HornOfCalling
 
             // Rebuilt rather than re-added, because the requirements reference ItemDrops
             // out of whichever ObjectDB is current, and that is the thing that just changed.
-            if (_recipe != null) Object.Destroy(_recipe);
+            //
+            // Taken out of the list it was put in before it is destroyed. That list is
+            // often not odb.m_recipes: the menu's list belongs to the ObjectDB prefab and
+            // outlives every world, so a recipe destroyed while still in it stayed behind
+            // as a dead entry the presence check above skips, and the menu's recipe count
+            // crept up by one per visit.
+            if (_recipe != null)
+            {
+                _recipeList?.Remove(_recipe);
+                Object.Destroy(_recipe);
+                _recipe = null;
+            }
+            _recipeList = null;
 
             var resources = new List<Piece.Requirement>();
             foreach ((string name, int amount, int perLevel) in Cost)
@@ -140,6 +163,7 @@ namespace HornOfCalling
             _recipe.m_resources = resources.ToArray();
 
             odb.m_recipes.Add(_recipe);
+            _recipeList = odb.m_recipes;
             Plugin.Log.LogInfo(
                 "Registered the " + PrefabName + " recipe at " + StationPrefabName +
                 " (" + odb.m_recipes.Count + " recipes).");
