@@ -10,6 +10,19 @@ namespace SeparateSpawns.Patches
         private static float _spawnWaitStartedAt = -1f;
         private static bool _loggedSpawnSyncTimeout;
 
+        /// <summary>
+        /// Per-world state, so it is cleared on world teardown like the rest
+        /// (docs/world-lifecycle.md). Left set, a wait that began in one session kept
+        /// counting through the main menu: a player who gave up after three minutes and
+        /// rejoined was dropped at the vanilla spawn seventeen seconds into the new
+        /// session, with a "timed out after 300s" that was true only of the wall clock.
+        /// </summary>
+        internal static void ResetSpawnWait()
+        {
+            _spawnWaitStartedAt = -1f;
+            _loggedSpawnSyncTimeout = false;
+        }
+
         private static void Postfix(
             Game __instance,
             ref Vector3 point,

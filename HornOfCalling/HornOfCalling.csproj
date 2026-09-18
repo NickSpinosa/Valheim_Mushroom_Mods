@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>HornOfCalling</AssemblyName>
     <RootNamespace>HornOfCalling</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Product>Horn of Calling</Product>
     <Description>Adds a craftable Horn of Calling that sounds a blast when used.</Description>
   </PropertyGroup>

@@ -15,7 +15,10 @@ internal static class FeastStats
 
     internal static void ApplyToObjectDB(ObjectDB db)
     {
-        if (db?.m_items == null)
+        // Count == 0 is the start scene's ObjectDB at Awake: it is filled by CopyOtherDB
+        // a moment later, which calls this again. Running against the empty list warned
+        // about all nine feasts on every launch and every return to the main menu.
+        if (db?.m_items == null || db.m_items.Count == 0)
             return;
 
         int applied = 0;

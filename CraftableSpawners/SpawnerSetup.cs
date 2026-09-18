@@ -248,8 +248,8 @@ internal static class SpawnerSetup
         if (hover)
             hover.m_text = def.DisplayName;
 
-        CraftableSpawnersPlugin.Log.LogInfo(
-            $"[DEBUG-unlock] {label} SpawnArea: interval={spawnArea.m_spawnIntervalSec}s " +
+        CraftableSpawnersPlugin.Dbgl(
+            $"{label} SpawnArea: interval={spawnArea.m_spawnIntervalSec}s " +
             $"trigger={spawnArea.m_triggerDistance} maxNear={spawnArea.m_maxNear} maxTotal={spawnArea.m_maxTotal} " +
             $"prefab={(spawnArea.m_prefabs[0].m_prefab ? spawnArea.m_prefabs[0].m_prefab.name : "null")}");
     }
@@ -276,7 +276,7 @@ internal static class SpawnerSetup
 
         if (!visualSource)
         {
-            CraftableSpawnersPlugin.Log.LogWarning($"[DEBUG-unlock] {missingVisualWarning}");
+            CraftableSpawnersPlugin.Log.LogWarning(missingVisualWarning);
             foreach (Renderer renderer in host.GetComponentsInChildren<Renderer>(true))
                 renderer.enabled = true;
             return;
@@ -399,7 +399,15 @@ internal static class SpawnerSetup
         List<PieceTable> tables = GetHammerTables();
         if (tables.Count == 0)
         {
-            CraftableSpawnersPlugin.Log.LogWarning("[DEBUG-unlock] No Hammer PieceTable found");
+            // No Hammer at all means the item database is not filled yet, not that the
+            // Hammer lost its build table: the start scene's ObjectDB runs Awake with an
+            // empty item list and CopyOtherDB fills it afterwards, so this fired on every
+            // return to the main menu. Only a Hammer without a table is worth a warning.
+            bool hammerExists =
+                (ObjectDB.instance && ObjectDB.instance.GetItemPrefab("Hammer"))
+                || (ZNetScene.instance && ZNetScene.instance.GetPrefab("Hammer"));
+            if (hammerExists)
+                CraftableSpawnersPlugin.Log.LogWarning("The Hammer has no build PieceTable; spawner pieces were not added.");
             return;
         }
 
@@ -419,7 +427,7 @@ internal static class SpawnerSetup
                 if (enabled && !inTable)
                 {
                     table.m_pieces.Add(def.Prefab);
-                    CraftableSpawnersPlugin.Log.LogInfo($"[DEBUG-unlock] Added {def.CloneName} to Hammer PieceTable ({table.m_pieces.Count} pieces)");
+                    CraftableSpawnersPlugin.Dbgl($"Added {def.CloneName} to Hammer PieceTable ({table.m_pieces.Count} pieces)");
                 }
                 else if (!enabled && inTable)
                 {
@@ -574,8 +582,8 @@ internal static class SpawnerSetup
             spawnArea.m_spawnTimer = spawnArea.m_spawnIntervalSec;
         }
 
-        CraftableSpawnersPlugin.Log.LogInfo(
-            $"[DEBUG-unlock] Placed {piece.name}: interval={spawnArea.m_spawnIntervalSec}s " +
+        CraftableSpawnersPlugin.Dbgl(
+            $"Placed {piece.name}: interval={spawnArea.m_spawnIntervalSec}s " +
             $"timer={spawnArea.m_spawnTimer} prefabs={spawnArea.m_prefabs?.Count ?? 0}");
     }
 
@@ -652,7 +660,7 @@ internal static class SpawnerSetup
                 player.m_zanim.SetTrigger(rightItem.m_shared.m_attack.m_attackAnimation);
             }
 
-            CraftableSpawnersPlugin.Log.LogInfo($"[DEBUG-unlock] Hammer-removed {piece.name}");
+            CraftableSpawnersPlugin.Dbgl($"Hammer-removed {piece.name}");
         }
         finally
         {
@@ -735,7 +743,7 @@ internal static class SpawnerSetup
                 GameObject itemPrefab = ObjectDB.instance.GetItemPrefab(req.m_resItem.name);
                 if (!itemPrefab)
                 {
-                    CraftableSpawnersPlugin.Log.LogWarning($"[DEBUG-unlock] Missing drop prefab for {req.m_resItem.name}");
+                    CraftableSpawnersPlugin.Log.LogWarning($"Missing drop prefab for {req.m_resItem.name}; that part of the refund was not dropped.");
                     continue;
                 }
 
@@ -759,7 +767,7 @@ internal static class SpawnerSetup
         catch (System.Exception ex)
         {
             // Never block Destructible/WearNTear destroy because refund failed.
-            CraftableSpawnersPlugin.Log.LogError($"[DEBUG-unlock] Combat refund failed for {def.CloneName}: {ex}");
+            CraftableSpawnersPlugin.Log.LogError($"Combat refund failed for {def.CloneName}: {ex}");
         }
     }
 }

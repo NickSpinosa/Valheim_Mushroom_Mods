@@ -10,6 +10,7 @@ namespace SeparateSpawns
         private static Plugin _plugin;
         private static bool _subscribed;
         private static bool _bootstrapStarted;
+        private static bool _locationsHandled;
 
         /// <summary>
         /// Subscribes to this world's location generation. Called once per world - from
@@ -29,11 +30,8 @@ namespace SeparateSpawns
             _subscribed = true;
             ModLog.Info("Separate Spawns subscribed to location generation.");
 
-            if (IsLocationsGenerated())
-            {
-                ModLog.Info("Locations already generated; running bootstrap now.");
-                _plugin.StartCoroutine(BootstrapWhenReady());
-            }
+            // The event alone is not enough - see WatchForLoadedLocations.
+            _plugin.StartCoroutine(WatchForLoadedLocations(ZoneSystem.instance));
         }
 
         /// <summary>
@@ -53,6 +51,9 @@ namespace SeparateSpawns
 
             _subscribed = false;
             _bootstrapStarted = false;
+            _locationsHandled = false;
+            DirectPeerSync.ResetServerLogState();
+            LayoutSync.ResetServerLogState();
 
             Plugin.LayoutCache?.Clear();
         }
@@ -60,6 +61,23 @@ namespace SeparateSpawns
         private static void OnLocationsGenerated()
         {
             ModLog.Info("GenerateLocationsCompleted fired.");
+            HandleLocationsReady();
+        }
+
+        /// <summary>
+        /// The one place that reacts to "this world has its locations", whichever of the
+        /// event or the watcher noticed first. Returns without latching while ZNet is
+        /// not up yet, so the watcher tries again rather than the world going without a
+        /// bootstrap.
+        /// </summary>
+        private static void HandleLocationsReady()
+        {
+            if (_locationsHandled || ZNet.instance == null)
+            {
+                return;
+            }
+
+            _locationsHandled = true;
             if (!ZNet.instance.IsServer())
             {
                 LoadExistingLayoutForClient();
@@ -67,6 +85,44 @@ namespace SeparateSpawns
             }
 
             _plugin.StartCoroutine(BootstrapWhenReady());
+        }
+
+        /// <summary>
+        /// Polls the generated flag, because for a saved world the event never fires.
+        ///
+        /// <c>GenerateLocationsCompleted</c> is raised by the <c>LocationsGenerated</c>
+        /// property setter. Valheim 1.0's save loader (<c>ZoneSystem.Load</c>, the DB2
+        /// format) assigns the backing field directly, so loading a world whose locations
+        /// already exist flips the flag in silence; only the legacy <c>LoadOld</c> path
+        /// and a fresh generation go through the setter. Without this, every restart of
+        /// an established server skipped the bootstrap, and a world with no saved layout
+        /// never got one. See docs/valheim-1.0-locations-generated.md.
+        ///
+        /// Server only: a client never generates locations, and gets its layout through
+        /// <see cref="ClientSyncHelper"/>. Ends with the ZoneSystem it was started for.
+        /// </summary>
+        private static IEnumerator WatchForLoadedLocations(ZoneSystem zoneSystem)
+        {
+            var wait = new WaitForSeconds(0.5f);
+            while (zoneSystem != null && ReferenceEquals(ZoneSystem.instance, zoneSystem) && !_locationsHandled)
+            {
+                if (ZNet.instance != null)
+                {
+                    if (!ZNet.instance.IsServer())
+                    {
+                        yield break;
+                    }
+
+                    if (IsLocationsGenerated())
+                    {
+                        ModLog.Info("Locations are present without a completion event (loaded from the save); running bootstrap.");
+                        HandleLocationsReady();
+                        yield break;
+                    }
+                }
+
+                yield return wait;
+            }
         }
 
         private static IEnumerator BootstrapWhenReady()
