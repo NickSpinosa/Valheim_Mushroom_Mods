@@ -15,7 +15,8 @@ Mushroom mods are a small collection of utility and quality of life mods designe
 | [Craftable Spawners](CraftableSpawners) | Craftable natural spawners |
 | [Random Yggdrasil](RandomYggdrasil) | Randomises the Yggdrasil branch rotation per world, synced across the server |
 | [Horn of Calling](HornOfCalling/README.md) | Craft a horn at the Workbench that sounds a blast other players hear out to 64 m |
-| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil |
+| [Resource Drop Modifier](ResourceDropModifier/README.md) | A drop multiplier for every item that drops, one config setting per item grouped by biome, synced from the server |
+| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil and Resource Drop Modifier |
 
 ## Installing
 
@@ -34,14 +35,15 @@ Valheim/
         ├── HornOfCalling.dll
         ├── MushroomSync.dll
         ├── RandomYggdrasil.dll
+        ├── ResourceDropModifier.dll
         ├── SeparateSpawns.dll
         └── VegvisirCompass.dll
 ```
 
 Want only some of them? Extract the zip and delete the DLLs you do not want.
 Keep `MushroomSync.dll` if you keep Combat Adjustments, Craftable Spawners,
-Haldor Expansion or Random Yggdrasil — they depend on it and will not load
-without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
+Haldor Expansion, Random Yggdrasil or Resource Drop Modifier — they depend on
+it and will not load without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
 independent.
 
 Most of these mods are server-authoritative, so install them on **every client

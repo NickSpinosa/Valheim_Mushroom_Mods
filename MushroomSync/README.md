@@ -14,6 +14,7 @@ settings share one implementation instead of four copies of the same 300 lines.
 | Craftable Spawners | Config sync |
 | Haldor Expansion | Config sync |
 | Random Yggdrasil | Raw channel (world rotations) |
+| Resource Drop Modifier | Raw channel (drop multipliers) |
 
 **`MushroomSync.dll` must be installed wherever those are** — on every client and on
 the dedicated server. The release zip ships it alongside them, so extracting
