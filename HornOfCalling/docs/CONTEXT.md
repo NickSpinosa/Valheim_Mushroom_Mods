@@ -609,3 +609,35 @@ list.
 
 Verified locally by building with `-p:ValheimPath=/nonexistent` plus the real paths as
 globals, reproducing how a runner overrides the local default.
+
+## The main menu's ObjectDB is empty at `Awake`, and its recipe list is immortal
+
+Two things the 2026-09-18 local server test turned up, both about the start scene.
+
+`ObjectDB.Awake` in the start scene runs with an **empty** `m_items`. `FejdStartup`
+fills it afterwards with `CopyOtherDB` from the ObjectDB prefab. `EnsureRegistered`
+already waited for that (its `GetItemPrefab("Wood")` gate); `EnsureRecipeRegistered`
+did not. On the first launch that was invisible, because `_prefab` did not exist yet
+and the method returned on its first line. On every *return* to the menu it had a
+prefab, found a workbench still in memory from the world just unloaded, failed to find
+Bronze, and logged `Cannot build the HornOfCalling recipe: no item prefab named
+Bronze.` The `CopyOtherDB` postfix then registered the recipe fine. It was ordering,
+reported as an error. The recipe method uses the same gate now.
+
+The second is a leak the log gave away: `(483 recipes)`, then 484, then 485, one more
+per menu visit, while in a world the count stayed at 482. `CopyOtherDB` does
+`m_recipes = other.m_recipes`, and at the menu `other` is the **prefab asset**, so the
+menu's list belongs to the prefab and outlives every scene. The recipe is rebuilt per
+ObjectDB and the old one destroyed, but it was destroyed while still sitting in the
+menu's list. A destroyed `ScriptableObject` compares equal to null, so the presence
+check skipped it and added another. `_recipeList` now remembers which list the recipe
+went into, and the rebuild removes it from *that* list before destroying it. Removing
+from `odb.m_recipes` would not do: the stale entry is never in the current list.
+
+## The dedicated server does not decode audio
+
+`AudioClip.Create` on a headless server returns a clip with no sample storage, so
+`SetData` fails with Unity's `AudioClip.SetData failed; AudioClip contains no data` and
+the log line read `(0.0s, 0 Hz)`. The effect prefab still has to exist there, because it
+carries a ZNetView, but nothing listens. `HornSound` skips `LoadClip` when
+`Application.isBatchMode` and says so.

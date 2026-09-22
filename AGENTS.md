@@ -36,17 +36,19 @@ mod does not have it yet.
 | CombatAdustments | `docs/shield-rework-requirements.md`, `docs/feasts.md`, `docs/sailing.md`, `docs/boss-hp-scaling.md`, `docs/valheim-1.0.md` |
 | CraftableSpawners | `docs/design_decisions.md`, `docs/valheim-1.0-buildui.md`, `docs/znetscene-rejoin.md` |
 | MushroomSync | `docs/DESIGN.md` |
-| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/world-lifecycle.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md` |
+| Separate Spawns | `docs/CONTEXT.md`, `docs/spawn-priority.md`, `docs/world-lifecycle.md`, `docs/valheim-1.0-save-system.md`, `docs/valheim-1.0-platform-id.md`, `docs/valheim-1.0-terrainop.md`, `docs/valheim-1.0-locations-generated.md` |
 | haldor-expansion | `docs/DESIGN.md`, `docs/trade-item-1.0.7.md`, `docs/placeable-item.md` |
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | `docs/yggdrasil-branch.md` |
+| QuietNights | `docs/DESIGN.md` |
 | ResourceDropModifier | `docs/DESIGN.md` |
 | vegvisir-compass | `docs/CONTEXT.md`; the user-facing design lives in the README's "How it works" |
 
 ## Server-authoritative sync
 
-Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil and
-Resource Drop Modifier get their host-follows-client behaviour from **MushroomSync**, a shared plugin.
+Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil,
+Quiet Nights and Resource Drop Modifier get their host-follows-client behaviour
+from **MushroomSync**, a shared plugin.
 Read [MushroomSync/README.md](MushroomSync/README.md) before adding a synced
 setting or a new push of server data, and
 [MushroomSync/docs/DESIGN.md](MushroomSync/docs/DESIGN.md) before changing how
@@ -60,7 +62,7 @@ MushroomSync, not in a mod.
 
 `Shared/` is not a mod and has no project of its own. It holds source files that
 every plugin compiles into itself through a linked `<Compile Include>`, for
-things all seven need identically but that do not justify a runtime dependency
+things all of them need identically but that do not justify a runtime dependency
 on MushroomSync — the three mods that do not already reference it stay
 standalone DLLs.
 

@@ -13,7 +13,7 @@ namespace HornOfCalling
     {
         internal const string Guid = "com.greg.hornofcalling";
         internal const string Name = "HornOfCalling";
-        internal const string Version = "0.1.0";
+        internal const string Version = "0.1.1";
 
         internal static ManualLogSource Log;
 

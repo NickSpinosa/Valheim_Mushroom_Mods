@@ -15,8 +15,9 @@ Mushroom mods are a small collection of utility and quality of life mods designe
 | [Craftable Spawners](CraftableSpawners) | Craftable natural spawners |
 | [Random Yggdrasil](RandomYggdrasil) | Randomises the Yggdrasil branch rotation per world, synced across the server |
 | [Horn of Calling](HornOfCalling/README.md) | Craft a horn at the Workbench that sounds a blast other players hear out to 64 m |
+| [Quiet Nights](QuietNights/README.md) | Stops boss kills from sending fulings, seekers and charred into other biomes at night |
 | [Resource Drop Modifier](ResourceDropModifier/README.md) | A drop multiplier for every item that drops, one config setting per item grouped by biome, synced from the server |
-| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil and Resource Drop Modifier |
+| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil, Quiet Nights and Resource Drop Modifier |
 
 ## Installing
 
@@ -34,6 +35,7 @@ Valheim/
         ├── HaldorExpansion.dll
         ├── HornOfCalling.dll
         ├── MushroomSync.dll
+        ├── QuietNights.dll
         ├── RandomYggdrasil.dll
         ├── ResourceDropModifier.dll
         ├── SeparateSpawns.dll
@@ -42,9 +44,9 @@ Valheim/
 
 Want only some of them? Extract the zip and delete the DLLs you do not want.
 Keep `MushroomSync.dll` if you keep Combat Adjustments, Craftable Spawners,
-Haldor Expansion, Random Yggdrasil or Resource Drop Modifier — they depend on
-it and will not load without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
-independent.
+Haldor Expansion, Random Yggdrasil, Quiet Nights or Resource Drop Modifier —
+they depend on it and will not load without it. Horn of Calling, Separate
+Spawns and Vegvísir Compass are independent.
 
 Most of these mods are server-authoritative, so install them on **every client
 and on the dedicated server**; check each mod's own README.
@@ -96,7 +98,7 @@ injection on the native build — the game starts, but no plugin loads.
 launch, and names each plugin it loads:
 
 ```bash
-grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil" \
+grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil|quietnights|resourcedrop" \
   ~/.local/share/Steam/steamapps/common/Valheim/BepInEx/LogOutput.log
 ```
 

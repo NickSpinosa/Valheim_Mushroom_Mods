@@ -282,7 +282,10 @@ internal static class ShieldStats
 
     internal static void ApplyToObjectDB(ObjectDB db)
     {
-        if (db?.m_items == null)
+        // Count == 0 is the start scene's ObjectDB at Awake, before CopyOtherDB fills it.
+        // Not only log noise ("Processed 0 shields"): a pending re-seed below would mark
+        // itself done against an empty list, and the real pass would then skip it.
+        if (db?.m_items == null || db.m_items.Count == 0)
             return;
 
         bool reseeding = ConfigSync.IsServerAuthority()

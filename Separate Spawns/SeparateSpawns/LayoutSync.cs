@@ -9,6 +9,15 @@ namespace SeparateSpawns
         private static bool _registered;
         private static ZRoutedRpc _registeredInstance;
 
+        // One warning per peer while the server has no layout; see DirectPeerSync.
+        private static readonly System.Collections.Generic.HashSet<long> UnavailableWarned =
+            new System.Collections.Generic.HashSet<long>();
+
+        public static void ResetServerLogState()
+        {
+            UnavailableWarned.Clear();
+        }
+
         public static void Register()
         {
             if (ZRoutedRpc.instance == null)
@@ -49,7 +58,11 @@ namespace SeparateSpawns
 
             if (Plugin.LayoutCache.Current == null)
             {
-                ModLog.Warning($"Layout request from peer {sender} ignored; server layout is unavailable.");
+                if (UnavailableWarned.Add(sender))
+                {
+                    ModLog.Warning($"Layout request from peer {sender} ignored; server layout is unavailable.");
+                }
+
                 return;
             }
 
@@ -57,7 +70,11 @@ namespace SeparateSpawns
             SendToPeer(sender, Plugin.LayoutCache.Current);
         }
 
-        public static void RequestLayoutFromServer()
+        /// <param name="direct">
+        /// False when the caller has already sent the direct request this pass; one
+        /// direct request returns both the roster and the layout.
+        /// </param>
+        public static void RequestLayoutFromServer(bool direct = true, bool quiet = false)
         {
             if (ZNet.instance == null || ZNet.instance.IsServer())
             {
@@ -69,8 +86,16 @@ namespace SeparateSpawns
                 return;
             }
 
-            ModLog.Info("Requesting world layout from server...");
-            DirectPeerSync.RequestFromServer();
+            if (!quiet)
+            {
+                ModLog.Info("Requesting world layout from server...");
+            }
+
+            if (direct)
+            {
+                DirectPeerSync.RequestFromServer(quiet);
+            }
+
             if (ZRoutedRpc.instance != null)
             {
                 ZRoutedRpc.instance.InvokeRoutedRPC("SeparateSpawns.RequestLayout", ZNet.GetUID());

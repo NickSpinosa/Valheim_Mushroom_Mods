@@ -99,8 +99,9 @@ namespace VegvisirCompass
         // --- Lock In ---------------------------------------------------------
 
         /// <summary>
-        /// Asks the server to settle a merchant where they stand. Sent when the trade UI
-        /// opens; the server does the work because it owns the rival traders' ZDOs.
+        /// Asks the server to settle a guided site where its actor stands. Sent when a
+        /// trader's shop or the Forge of Potential craft UI opens; the server does the
+        /// work because it owns the rival actors' ZDOs.
         /// </summary>
         internal static void RequestLockIn(MerchantDef def, Vector3 traderPosition)
         {

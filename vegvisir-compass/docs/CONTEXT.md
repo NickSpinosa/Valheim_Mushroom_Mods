@@ -83,16 +83,37 @@ that candidate site can never host the merchant again.
 `LocationInstance.m_placed` is not a spawn switch either — it is bookkeeping
 written during generation. Clearing it removes nothing.
 
-So placement is left alone entirely and the **trader** is managed instead: every
-candidate camp places normally, and the merchant standing in it is spawned and
-despawned by proximity. Opening the trade UI settles the site.
+So placement is left alone entirely and the **actor** is managed instead: every
+candidate camp places normally, and the trader (or `UpgradeStation` for the Forge
+of Potential) standing in it is spawned and despawned by proximity. Opening the
+trade UI settles a merchant; opening the upgrader craft UI settles the forge.
+
+## The forge is not a trader
+
+`AncientUpgradeStation` reuses the same provisional-spawn and lock-in machinery
+as Haldor / Hildir / Bog Witch, with three deliberate differences:
+
+- The Mountain lorestone location is **`RuneStone_Mountains`** (plural). Matching
+  `Runestone_Mountain` silently never grants a compass; `Location.GetLocation`
+  returns the placed location's prefab name, and that is the plural form.
+
+- The provisional actor is the craft station prefab `UpgradeStation`, not a
+  `Trader`. Lock-in therefore hooks `CraftingStation.Interact` when
+  `m_upgrader` is set, not `StoreGui.Show`.
+- It is excluded from the "any merchant already placed" world-support check. A
+  forge that vanilla already committed must not flip the whole placement system
+  to `DisabledUnsupported` and leave every trader stuck wherever they first
+  appeared.
+- On a world that already carries `VC_MerchantPlacement` but has a forge placed
+  without `VC_MerchantLocked_AncientUpgradeStation`, that forge is auto-locked
+  once so we do not spawn provisional duplicates beside a half-vanilla unique.
 
 ## Lock-in has to run on the server
 
-`StoreGui.Show` is client-side UI, and a client owns none of the rival traders'
-ZDOs — `ZDOMan.DestroyZDO` acts only on ZDOs the caller owns. So the client sends
-`VC_LockMerchant` and the server does the work, claiming ownership of each ZDO
-before destroying it.
+`StoreGui.Show` and `CraftingStation.Interact` run on the client, which owns
+none of the rival actors' ZDOs — `ZDOMan.DestroyZDO` acts only on ZDOs the
+caller owns. So the client sends `VC_LockMerchant` and the server does the work,
+claiming ownership of each ZDO before destroying it.
 
 ## The config is deliberately small
 

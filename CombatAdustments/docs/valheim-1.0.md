@@ -190,3 +190,24 @@ years from now, in a build where nobody remembers the list was written against
 
 `Heightmap.Biome.DeepNorth` itself needed no code change — the mod only ever
 compares against `Biome.Ocean`, in `OceanWeather`.
+
+## The start scene's ObjectDB is empty at `Awake`
+
+Seen on 1.0.15, 2026-09-18, and true since 1.0 at least. `ObjectDB.Awake` is only
+`m_instance = this; UpdateRegisters();`, and in the start scene `m_items` is empty at
+that point. `FejdStartup` fills it a moment later through `CopyOtherDB`, which our
+second postfix catches.
+
+So the `Awake` postfix ran `ShieldStats` and `FeastStats` against nothing on every
+launch and every return to the main menu: `Processed 0 shields`, nine `Feast stats:
+prefab '...' not found` warnings, `Applied feast bonuses to 0 feast items`, then the
+real pass straight after. Both `ApplyToObjectDB` methods return early on an empty list
+now.
+
+That was not only noise. `ShieldStats` stamps `GrantTableVersion` at the end of a pass
+when a re-seed is pending. Against an empty list it re-seeded nothing and still stamped
+the version, so the real pass that followed saw nothing pending. Any future bump of
+`CurrentGrantTableVersion` would have been swallowed at the main menu.
+
+The nine feast warnings now mean what they say: a populated ObjectDB that lacks a feast
+prefab. If they come back, a prefab was renamed.

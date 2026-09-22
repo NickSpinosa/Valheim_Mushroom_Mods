@@ -15,7 +15,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.8.0";
+    public const string PluginVersion = "0.8.1";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;

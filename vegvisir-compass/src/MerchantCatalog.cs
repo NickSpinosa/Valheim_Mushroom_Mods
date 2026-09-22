@@ -2,33 +2,41 @@ using UnityEngine;
 
 namespace VegvisirCompass
 {
-    /// <summary>A trader that lorestones can point toward.</summary>
+    /// <summary>A unique site that lorestones can point toward — trader or upgrader.</summary>
     internal sealed class MerchantDef
     {
-        /// <summary>Location the merchant's camp occupies, e.g. "Vendor_BlackForest".</summary>
+        /// <summary>Location the site occupies, e.g. "Vendor_BlackForest".</summary>
         internal string LocationName;
 
         /// <summary>Shown on the compass: "Vegvisir Compass - Haldor".</summary>
         internal string DisplayName;
 
-        /// <summary>Location names of the lorestones that point at this merchant.</summary>
+        /// <summary>Location names of the lorestones that point at this site.</summary>
         internal string[] RuneStoneLocationNames;
 
         /// <summary>
-        /// Prefab name of the trader themselves, used to find where they have actually
-        /// settled once spawned. Empty disables that lookup for this merchant.
+        /// Prefab name of the provisional actor (trader NPC or UpgradeStation), used to
+        /// find where they stand once spawned. Empty disables that lookup.
         /// </summary>
         internal string TraderPrefabName;
 
         /// <summary>
-        /// Stones nearer the world centre than this stay lore-only. Traders close to
+        /// Stones nearer the world centre than this stay lore-only. Sites close to
         /// spawn are easy enough to stumble across; guidance is for the distant ones.
         /// </summary>
         internal float GuidanceMinDistanceFromCentre;
+
+        /// <summary>
+        /// True for the Forge of Potential: settles when the upgrader craft UI opens,
+        /// not when a trader's shop does. Excluded from the "any merchant already
+        /// placed" world-support check so a pre-existing forge cannot disable trader
+        /// deferral.
+        /// </summary>
+        internal bool IsUpgrader;
     }
 
     /// <summary>
-    /// The merchants, and which lorestones lead to them.
+    /// The guided unique sites, and which lorestones lead to them.
     ///
     /// Vanilla lorestones carry no location of their own, so a stone is identified by
     /// the location it stands in rather than by anything on the stone itself.
@@ -61,10 +69,20 @@ namespace VegvisirCompass
                 TraderPrefabName = "BogWitch",
                 GuidanceMinDistanceFromCentre = 1500f,
             },
+            new MerchantDef
+            {
+                LocationName = "AncientUpgradeStation",
+                DisplayName = "Forge of Potential",
+                // Vanilla prefab is RuneStone_Mountains (plural). Singular never matches.
+                RuneStoneLocationNames = new[] { "Runestone_Mountains" },
+                TraderPrefabName = "UpgradeStation",
+                GuidanceMinDistanceFromCentre = 1500f,
+                IsUpgrader = true,
+            },
         };
 
         /// <summary>
-        /// Identifies the merchant a lorestone belongs to from the location it stands in.
+        /// Identifies the site a lorestone belongs to from the location it stands in.
         ///
         /// Deliberately uses Location.GetLocation rather than ZoneSystem lookups:
         /// m_locationInstances is empty on clients, so any location-list approach would
@@ -95,13 +113,14 @@ namespace VegvisirCompass
 
             // Logged rather than dropped quietly: the location's real name is the one
             // thing needed to fix a catalog entry that does not match.
-            Plugin.Debug($"Lorestone: location '{name}' is not a merchant stone.");
+            Plugin.Debug($"Lorestone: location '{name}' is not a guided stone.");
             return null;
         }
 
         /// <summary>
         /// Identifies which merchant a trader is, by name. Traders carry a localization
         /// token such as "$npc_haldor", so both that and the plain name are accepted.
+        /// Upgrader sites are skipped — they lock in through CraftingStation, not StoreGui.
         /// </summary>
         internal static MerchantDef ResolveForTrader(Trader trader)
         {
@@ -109,7 +128,27 @@ namespace VegvisirCompass
 
             foreach (MerchantDef def in All)
             {
+                if (def.IsUpgrader) continue;
                 if (NameMatches(trader.m_name, def) || NameMatches(trader.gameObject.name, def))
+                {
+                    return def;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Identifies the Forge of Potential from an upgrader crafting station.
+        /// </summary>
+        internal static MerchantDef ResolveForUpgrader(CraftingStation station)
+        {
+            if (station == null || !station.m_upgrader) return null;
+
+            foreach (MerchantDef def in All)
+            {
+                if (!def.IsUpgrader) continue;
+                if (NameMatches(station.gameObject.name, def)
+                    || NameMatches(station.m_name, def))
                 {
                     return def;
                 }
@@ -119,7 +158,7 @@ namespace VegvisirCompass
 
         private static bool NameMatches(string name, MerchantDef def)
         {
-            if (string.IsNullOrEmpty(name)) return false;
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(def.TraderPrefabName)) return false;
 
             return name.IndexOf(def.TraderPrefabName, System.StringComparison.OrdinalIgnoreCase) >= 0
                 || name.IndexOf(def.DisplayName, System.StringComparison.OrdinalIgnoreCase) >= 0;

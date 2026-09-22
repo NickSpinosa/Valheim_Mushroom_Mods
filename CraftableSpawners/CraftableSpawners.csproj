@@ -7,7 +7,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AssemblyName>CraftableSpawners</AssemblyName>
     <RootNamespace>CraftableSpawners</RootNamespace>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <Authors>Gonfreecss</Authors>
     <Description>Craftable natural spawners for Valheim</Description>
     <GamePath Condition="'$(GamePath)' == '' and Exists('F:\Steam\steamapps\common\Valheim')">F:\Steam\steamapps\common\Valheim</GamePath>
