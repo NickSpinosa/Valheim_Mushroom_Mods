@@ -1,0 +1,127 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net472 rather than netstandard2.1: this mod references MushroomSync, which
+         targets net472 and cannot be consumed from a netstandard project. See the
+         comment in MushroomSync.csproj. -->
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>ResourceDropModifier</AssemblyName>
+    <RootNamespace>ResourceDropModifier</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Resource Drop Modifier</Product>
+    <Description>Per-item drop multipliers for Valheim, one config setting per item grouped by biome, synced from the server.</Description>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>portable</DebugType>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- CS0649: game types assigned by Unity's serializer. MSB3277: Unity's Mono BCL
+         and the reference assemblies disagree on framework assembly versions; only
+         Unity's copies exist at runtime. -->
+    <NoWarn>$(NoWarn);CS0649;MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Game and BepInEx assemblies come from the local install. CI passes ValheimDir,
+    ValheimManaged and BepInExCore as MSBuild global properties, which override
+    everything here; locally the Steam registry is consulted first so a normal
+    install needs no configuration. Pass -p:ValheimDir=... for a Steam library
+    the registry does not know about.
+  -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimManaged Condition="'$(ValheimManaged)' == ''">$(ValheimDir)\valheim_Data\Managed</ValheimManaged>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">$(ValheimDir)\BepInEx\core</BepInExCore>
+    <BepInExPlugins Condition="'$(BepInExPlugins)' == ''">$(ValheimDir)\BepInEx\plugins</BepInExPlugins>
+  </PropertyGroup>
+
+  <Target Name="CheckValheimRefs" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ValheimManaged)\assembly_valheim.dll')"
+           Text="assembly_valheim.dll not found under '$(ValheimManaged)'. Set ValheimDir to your Valheim install directory." />
+    <Error Condition="!Exists('$(BepInExCore)\BepInEx.dll')"
+           Text="BepInEx.dll not found under '$(BepInExCore)'. Install BepInEx into the Valheim folder." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+
+  <!-- Shared across every plugin in the repo; see Shared/PatchIsolation.cs. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PatchIsolation.cs" Link="PatchIsolation.cs" />
+  </ItemGroup>
+
+  <!--
+    Shared server-authoritative sync. Private=false because MushroomSync ships as
+    its own plugin DLL in the release; a copy beside this one would put two on disk
+    and BepInEx would load the wrong one after an upgrade.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MushroomSync\MushroomSync.csproj" Private="false" />
+  </ItemGroup>
+
+  <!--
+    Private=false keeps game binaries out of bin/. They exist at runtime already,
+    and shipping copies would redistribute game code.
+  -->
+  <ItemGroup>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ValheimManaged)\assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(ValheimManaged)\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Localization, for the item names in the setting descriptions. -->
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(ValheimManaged)\assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- SoftReference<GameObject>: location and dungeon-room prefabs are soft
+         references the catalog walk has to load. Also listed in the CI action's
+         required-assembly check. -->
+    <Reference Include="SoftReferenceableAssets">
+      <HintPath>$(ValheimManaged)\SoftReferenceableAssets.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ValheimManaged)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ValheimManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCore)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCore)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+    Drop the built plugin straight into BepInEx/plugins so a build is immediately
+    testable. Skipped silently when the folder is absent (CI). Valheim keeps the
+    DLL memory-mapped while running, so the copy fails on a file lock mid-session;
+    the assembly still compiled, only deployment failed.
+  -->
+  <Target Name="DeployToBepInEx" AfterTargets="Build" Condition="Exists('$(BepInExPlugins)')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExPlugins)" Retries="0" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="CopiedFiles" ItemName="DeployedPlugin" />
+    </Copy>
+    <Message Importance="high" Condition="'@(DeployedPlugin)' != ''"
+             Text="Deployed $(TargetFileName) -> $(BepInExPlugins)" />
+    <Warning Condition="'@(DeployedPlugin)' == ''"
+             Text="Build succeeded but the plugin could not be deployed - Valheim is holding the DLL. Close the game and rebuild." />
+  </Target>
+
+</Project>

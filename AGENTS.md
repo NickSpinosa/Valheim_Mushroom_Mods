@@ -41,12 +41,14 @@ mod does not have it yet.
 | HornOfCalling | `docs/CONTEXT.md` |
 | RandomYggdrasil | `docs/yggdrasil-branch.md` |
 | QuietNights | `docs/DESIGN.md` |
+| ResourceDropModifier | `docs/DESIGN.md` |
 | vegvisir-compass | `docs/CONTEXT.md`; the user-facing design lives in the README's "How it works" |
 
 ## Server-authoritative sync
 
-Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil and
-Quiet Nights get their host-follows-client behaviour from **MushroomSync**, a shared plugin.
+Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil,
+Quiet Nights and Resource Drop Modifier get their host-follows-client behaviour
+from **MushroomSync**, a shared plugin.
 Read [MushroomSync/README.md](MushroomSync/README.md) before adding a synced
 setting or a new push of server data, and
 [MushroomSync/docs/DESIGN.md](MushroomSync/docs/DESIGN.md) before changing how

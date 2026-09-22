@@ -127,7 +127,8 @@ runs:
             'UnityEngine.InputLegacyModule.dll', 'UnityEngine.IMGUIModule.dll', 'UnityEngine.UI.dll',
             'UnityEngine.TextRenderingModule.dll', 'UnityEngine.AnimationModule.dll',
             'UnityEngine.AudioModule.dll', 'UnityEngine.ParticleSystemModule.dll',
-            'UnityEngine.ImageConversionModule.dll', 'Unity.TextMeshPro.dll'
+            'UnityEngine.ImageConversionModule.dll', 'Unity.TextMeshPro.dll',
+            'SoftReferenceableAssets.dll'
           )
           'ci-refs\valheim-root\BepInEx\core' = @('BepInEx.dll', '0Harmony.dll', 'BepInEx.Harmony.dll')
         }

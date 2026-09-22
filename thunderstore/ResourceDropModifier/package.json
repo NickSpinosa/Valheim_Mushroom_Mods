@@ -1,0 +1,6 @@
+{
+  "dll": "ResourceDropModifier.dll",
+  "description": "A drop multiplier for every item that drops in the game, one config setting per item grouped by biome, editable in Configuration Manager. The server's values are the ones that count.",
+  "readme": "ResourceDropModifier/README.md",
+  "categories": ["tweaks", "server-side", "client-side"]
+}
