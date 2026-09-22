@@ -15,7 +15,8 @@ Mushroom mods are a small collection of utility and quality of life mods designe
 | [Craftable Spawners](CraftableSpawners) | Craftable natural spawners |
 | [Random Yggdrasil](RandomYggdrasil) | Randomises the Yggdrasil branch rotation per world, synced across the server |
 | [Horn of Calling](HornOfCalling/README.md) | Craft a horn at the Workbench that sounds a blast other players hear out to 64 m |
-| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion and Random Yggdrasil |
+| [Quiet Nights](QuietNights/README.md) | Stops boss kills from sending fulings, seekers and charred into other biomes at night |
+| [Mushroom Sync](MushroomSync/README.md) | No gameplay of its own — shared server-authoritative sync, required by Combat Adjustments, Craftable Spawners, Haldor Expansion, Random Yggdrasil and Quiet Nights |
 
 ## Installing
 
@@ -33,6 +34,7 @@ Valheim/
         ├── HaldorExpansion.dll
         ├── HornOfCalling.dll
         ├── MushroomSync.dll
+        ├── QuietNights.dll
         ├── RandomYggdrasil.dll
         ├── SeparateSpawns.dll
         └── VegvisirCompass.dll
@@ -40,8 +42,8 @@ Valheim/
 
 Want only some of them? Extract the zip and delete the DLLs you do not want.
 Keep `MushroomSync.dll` if you keep Combat Adjustments, Craftable Spawners,
-Haldor Expansion or Random Yggdrasil — they depend on it and will not load
-without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
+Haldor Expansion, Random Yggdrasil or Quiet Nights — they depend on it and will
+not load without it. Horn of Calling, Separate Spawns and Vegvísir Compass are
 independent.
 
 Most of these mods are server-authoritative, so install them on **every client
@@ -94,7 +96,7 @@ injection on the native build — the game starts, but no plugin loads.
 launch, and names each plugin it loads:
 
 ```bash
-grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil" \
+grep -iE "mushroom|vegvisir|spawns|haldor|shieldrework|hornofcalling|yggdrasil|quietnights" \
   ~/.local/share/Steam/steamapps/common/Valheim/BepInEx/LogOutput.log
 ```
 

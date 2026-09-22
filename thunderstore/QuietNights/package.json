@@ -1,0 +1,6 @@
+{
+  "dll": "QuietNights.dll",
+  "description": "Stops boss kills from sending fulings, seekers and charred into other biomes at night. They still spawn at home. Configurable per creature, set on the server and followed by every client.",
+  "readme": "QuietNights/README.md",
+  "categories": ["tweaks", "server-side", "client-side"]
+}
