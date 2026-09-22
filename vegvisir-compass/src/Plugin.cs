@@ -154,6 +154,6 @@ namespace VegvisirCompass
     {
         internal const string Guid = "com.dhobbs.vegvisircompass";
         internal const string Name = "Vegvisir Compass";
-        internal const string Version = "1.6.0";
+        internal const string Version = "1.7.1";
     }
 }

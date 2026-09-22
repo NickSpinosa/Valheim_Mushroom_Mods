@@ -381,6 +381,7 @@ namespace VegvisirCompass
             icons[CompassVariant.Merchant] = TintedSprite(baseIcon, CompassVariant.MerchantTint);
             icons[CompassVariant.MysteriousLocation] = TintedSprite(baseIcon, CompassVariant.MysteryTint);
             icons[CompassVariant.HildirQuest] = TintedSprite(baseIcon, CompassVariant.HildirQuestTint);
+            icons[CompassVariant.ForgeOfPotential] = TintedSprite(baseIcon, CompassVariant.ForgeTint);
 
             // A missing tint would leave a null in the array and throw when the icon is
             // drawn, so fall back to the untinted original for any that failed.

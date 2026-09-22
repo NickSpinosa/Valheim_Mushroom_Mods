@@ -225,11 +225,11 @@ namespace VegvisirCompass
     }
 
     /// <summary>
-    /// Holds vanilla back from deleting a merchant's other candidate sites.
+    /// Holds vanilla back from deleting other candidate sites for a guided unique.
     ///
-    /// Vanilla treats merchant camps as unique: placing one wipes the rest, so the first
-    /// candidate anyone walks past decides where the trader lives forever. Blocking that
-    /// until the site is settled keeps the choice open.
+    /// Vanilla treats merchant camps and the Forge of Potential as unique: placing one
+    /// wipes the rest, so the first candidate anyone walks past decides where the site
+    /// lives forever. Blocking that until the site is settled keeps the choice open.
     /// </summary>
     [HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.RemoveUnplacedLocations))]
     internal static class RemoveUnplacedLocationsPatch
@@ -295,6 +295,34 @@ namespace VegvisirCompass
             catch (System.Exception e)
             {
                 Plugin.Log.LogWarning("Merchant lock-in failed: " + e.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Settles the Forge of Potential the moment its craft UI opens — the upgrader
+    /// equivalent of opening a trader's shop.
+    /// </summary>
+    [HarmonyPatch(typeof(CraftingStation), nameof(CraftingStation.Interact))]
+    internal static class CraftingStationInteractLockPatch
+    {
+        [HarmonyPostfix]
+        internal static void Postfix(CraftingStation __instance, Humanoid user, bool repeat)
+        {
+            if (repeat || __instance == null || !__instance.m_upgrader) return;
+            if (!MerchantPlacement.IsActive) return;
+            if (user == null || user != Player.m_localPlayer) return;
+
+            try
+            {
+                MerchantDef def = MerchantCatalog.ResolveForUpgrader(__instance);
+                if (def == null || MerchantPlacement.IsLocked(def)) return;
+
+                CompassRpc.RequestLockIn(def, __instance.transform.position);
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogWarning("Forge of Potential lock-in failed: " + e.Message);
             }
         }
     }

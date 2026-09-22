@@ -4,12 +4,12 @@ using UnityEngine;
 namespace VegvisirCompass
 {
     /// <summary>
-    /// Defers where a merchant settles until the player actually trades with them.
+    /// Defers where a guided unique site settles until the player commits to it.
     ///
-    /// Vanilla marks merchant camps unique: the first candidate any player wanders near
-    /// is placed, and every other candidate is deleted on the spot. Where your trader
-    /// lives is therefore decided by an idle walk through the Black Forest, long before
-    /// you had any reason to care.
+    /// Vanilla marks these locations unique: the first candidate any player wanders near
+    /// is placed, and every other candidate is deleted on the spot. Where your trader or
+    /// Forge of Potential lives is therefore decided by an idle walk, long before you had
+    /// any reason to care.
     ///
     /// The deferral cannot work by holding placement back. ZoneSystem.PlaceLocations runs
     /// exactly once per zone - SpawnZone gates it on !IsZoneGenerated and then calls
@@ -19,10 +19,11 @@ namespace VegvisirCompass
     /// during generation, and clearing it removes nothing, because the camp objects
     /// already exist as ZDOs that outlive the zone being unloaded.
     ///
-    /// So placement is left entirely alone and the trader is managed instead. Every
-    /// candidate camp places normally; the merchant standing in it is spawned when a
-    /// player comes within vanilla's own range and removed again when they leave, which
-    /// keeps the choice open without any camp becoming permanent. Opening the trade UI
+    /// So placement is left entirely alone and the provisional actor is managed instead
+    /// (trader NPC, or UpgradeStation for the forge). Every candidate camp places
+    /// normally; the actor is spawned when a player comes within vanilla's own range and
+    /// removed again when they leave, which keeps the choice open without any site
+    /// becoming permanent. Opening the trade UI (or the upgrader craft UI for the forge)
     /// settles the site: the rest are destroyed for good and vanilla's cleanup is finally
     /// allowed to clear the spare candidates.
     ///
@@ -101,10 +102,14 @@ namespace VegvisirCompass
             {
                 State = SupportState.Active;
                 Plugin.Log.LogInfo("Merchant placement active on this world.");
+                // A forge placed before this feature (or while only traders were deferred)
+                // has already spent its unique candidates. Lock it so we do not spawn
+                // provisional duplicates on a half-vanilla world.
+                AutoLockPreExistingUpgraders(zones);
                 return;
             }
 
-            if (AnyMerchantAlreadyPlaced(zones))
+            if (AnyTraderAlreadyPlaced(zones))
             {
                 State = SupportState.DisabledUnsupported;
                 if (!_warnedUnsupported)
@@ -138,19 +143,59 @@ namespace VegvisirCompass
             }
         }
 
-        private static bool AnyMerchantAlreadyPlaced(ZoneSystem zones)
+        /// <summary>
+        /// True when a trader camp was already placed under vanilla rules. Upgrader
+        /// sites are excluded: a pre-existing Forge of Potential must not disable
+        /// merchant deferral for the whole world.
+        /// </summary>
+        private static bool AnyTraderAlreadyPlaced(ZoneSystem zones)
         {
             foreach (MerchantDef def in MerchantCatalog.All)
             {
-                List<ZoneSystem.LocationInstance> found = new List<ZoneSystem.LocationInstance>();
-                if (!zones.FindLocations(def.LocationName, ref found) || found == null) continue;
-
-                foreach (ZoneSystem.LocationInstance instance in found)
-                {
-                    if (instance.m_placed) return true;
-                }
+                if (def.IsUpgrader) continue;
+                if (AnyPlaced(zones, def)) return true;
             }
             return false;
+        }
+
+        private static bool AnyPlaced(ZoneSystem zones, MerchantDef def)
+        {
+            List<ZoneSystem.LocationInstance> found = new List<ZoneSystem.LocationInstance>();
+            if (!zones.FindLocations(def.LocationName, ref found) || found == null) return false;
+
+            foreach (ZoneSystem.LocationInstance instance in found)
+            {
+                if (instance.m_placed) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Locks upgrader defs that already have a placed instance and no lock key yet.
+        /// Called when joining an Active world that may predate forge deferral.
+        /// </summary>
+        private static void AutoLockPreExistingUpgraders(ZoneSystem zones)
+        {
+            foreach (MerchantDef def in MerchantCatalog.All)
+            {
+                if (!def.IsUpgrader) continue;
+                if (IsLocked(def)) continue;
+                if (!AnyPlaced(zones, def)) continue;
+
+                zones.SetGlobalKey(LockKey(def));
+
+                ZoneSystem.ZoneLocation location = zones.GetLocation(def.LocationName);
+                if (location != null)
+                {
+                    // Prefix returns true once locked, so this finally clears leftover
+                    // candidates if any survived a mid-version upgrade.
+                    zones.RemoveUnplacedLocations(location);
+                }
+
+                Plugin.Log.LogInfo(
+                    $"{def.DisplayName} was already placed on this world; locking it in place " +
+                    "rather than managing provisional stations.");
+            }
         }
 
         // --- Lock In ---------------------------------------------------------
@@ -193,7 +238,7 @@ namespace VegvisirCompass
 
             Plugin.Log.LogInfo(
                 $"{def.DisplayName} settled at {traderPosition}" +
-                (removed > 0 ? $"; removed {removed} provisional merchant(s) elsewhere." : "."));
+                (removed > 0 ? $"; removed {removed} provisional site(s) elsewhere." : "."));
         }
 
         // --- Presence ---------------------------------------------------------

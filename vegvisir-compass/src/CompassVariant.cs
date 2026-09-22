@@ -18,17 +18,19 @@ namespace VegvisirCompass
         internal const int Merchant = 1;
         internal const int MysteriousLocation = 2;
         internal const int HildirQuest = 3;
+        internal const int ForgeOfPotential = 4;
 
         /// <summary>Number of icons the prefab is given.</summary>
-        internal const int Count = 4;
+        internal const int Count = 5;
 
         // Tint per variant. Boss wears the original artwork untinted, so it has no
         // entry. Deliberately fixed rather than configurable: a compass pack is only
         // readable at a glance if the colours mean the same thing to everyone, and
-        // three colour knobs were three ways to break that for no gain.
+        // colour knobs were ways to break that for no gain.
         internal static readonly Color MerchantTint = new Color(0.80f, 0.84f, 0.90f);       // #CCD6E6
         internal static readonly Color MysteryTint = new Color(0.88f, 0.27f, 0.20f);        // #E04533
         internal static readonly Color HildirQuestTint = new Color(0.64f, 0.38f, 0.92f);    // #A361EB
+        internal static readonly Color ForgeTint = new Color(0.55f, 0.78f, 0.92f);          // #8CC7EB mountain ice
 
         /// <summary>
         /// Ashlands Mysterious Locations, the Dyrnwyn chain. Matched by prefix so all
@@ -53,10 +55,12 @@ namespace VegvisirCompass
 
             foreach (MerchantDef merchant in MerchantCatalog.All)
             {
-                if (string.Equals(locationName, merchant.LocationName, System.StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(locationName, merchant.LocationName, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    return Merchant;
+                    continue;
                 }
+
+                return merchant.IsUpgrader ? ForgeOfPotential : Merchant;
             }
 
             foreach (HildirQuestDef quest in HildirQuestCatalog.All)

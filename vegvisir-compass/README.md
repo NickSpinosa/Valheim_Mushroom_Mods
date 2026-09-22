@@ -35,14 +35,17 @@ the boss that stone points at, then crumbles once it is spent.
   already carry are skipped rather than refusing the whole stone.
 - **Merchant lorestones**: biome runestones far enough from the world centre also
   grant a compass — Black Forest → Haldor, Meadows and Plains → Hildir, Swamp →
-  the Bog Witch. The stone still shows its lore text.
+  the Bog Witch, Mountains → the Forge of Potential. The stone still shows its
+  lore text.
 - **Hildir's map table** grants compasses for her three quest dungeons, named
   Brass, Silver and Bronze.
 - Merchants **settle where you trade with them**, not at the first camp anyone
-  walks past. New worlds only.
+  walks past. The Forge of Potential **settles when you open it**, the same way.
+  New worlds only (or worlds the mod has managed from the start).
 - Icons are **coloured by what they point at**, so a full pack stays readable at
   a glance: gold for bosses, grey for merchants, red for Ashlands Mysterious
-  Locations, purple for Hildir's quest dungeons.
+  Locations, purple for Hildir's quest dungeons, ice-blue for the Forge of
+  Potential.
 
 The map is never touched. See [No map, really](#no-map-really) for why that
 needed care.
@@ -203,26 +206,32 @@ entirely local — no further server contact.
 
 ### Finding a merchant who has moved in
 
-Vanilla treats merchant camps as **unique**: the moment one is placed it deletes
-every other candidate for that trader. Since a camp is placed simply by walking
-within range, where your merchant lives is decided by the first site anyone
-happens to pass — usually long before it mattered to anyone.
+Vanilla treats merchant camps (and the Forge of Potential) as **unique**: the
+moment one is placed it deletes every other candidate. Since a camp is placed
+simply by walking within range, where your merchant or forge lives is decided by
+the first site anyone happens to pass — usually long before it mattered to anyone.
 
 The obvious way to defer that is to hold the camp back from being placed. It is a
 trap, and worth writing down. `ZoneSystem.SpawnZone` calls `PlaceLocations` only
 when a zone has never been generated, then calls `SetZoneGenerated` regardless of
 what happened inside — so a zone whose placement was skipped is marked generated
-and empty, **permanently**, and that candidate can never host the merchant again.
+and empty, **permanently**, and that candidate can never host the site again.
 Nor is `LocationInstance.m_placed` a spawn switch: it is bookkeeping written
 during generation, and clearing it removes nothing, because the camp's objects
 already exist as ZDOs that outlive the zone unloading.
 
-So placement is left completely alone and the **trader** is managed instead. Every
-candidate camp places normally. The merchant standing in it is spawned when a
-player comes within vanilla's own range and removed again when they leave, so
-several provisional merchants can exist at once and none of them is a commitment.
-**Opening the trader's shop settles the site**: every other trader is destroyed
-for good and vanilla's cleanup is finally allowed to clear the spare candidates.
+So placement is left completely alone and the **actor** is managed instead
+(trader NPC, or `UpgradeStation` for the forge). Every candidate camp places
+normally. The actor standing in it is spawned when a player comes within
+vanilla's own range and removed again when they leave, so several provisional
+sites can exist at once and none of them is a commitment. **Opening the trader's
+shop** (or **opening the Forge of Potential**) settles the site: every other
+provisional actor is destroyed for good and vanilla's cleanup is finally allowed
+to clear the spare candidates.
+
+A pre-existing forge on an otherwise managed world is auto-locked rather than
+allowed to disable merchant deferral for everyone — the "any camp already placed"
+check deliberately ignores upgrader sites.
 
 Proximity is asked of the game — `ZNetScene.InActiveArea(campPosition, refPos)`,
 once for the host's reference position and once per peer — rather than measured in
@@ -239,19 +248,21 @@ The active area is now a **server-synced, player-configurable** `SimulationDista
 its shape is not even a square of zones: at near distance 2, non-classic,
 `ZNetScene.PointInsideActiveArea` intersects the 1.5-zone Chebyshev box with a
 1.75-zone radius, clipping the corners. Any arithmetic of our own would be a second
-copy of a rule the player can change under it, and provisional merchants would
+copy of a rule the player can change under it, and provisional actors would
 spawn or vanish at a distance that no longer matches what the server actually
 simulates. `ZNetScene.InActiveArea` is static and public — use it.
 
-Settling runs on the server, over an RPC, because `StoreGui.Show` is client-side
-and a client owns none of the rival traders' ZDOs. The settled flag rides on a
-global key, so it persists in the world save and reaches clients without any sync
-of the mod's own. Guidance prefers a settled merchant, then the nearest one
-currently standing, and finally the nearest candidate site.
+Settling runs on the server, over an RPC, because `StoreGui.Show` /
+`CraftingStation.Interact` are client-side and a client owns none of the rival
+actors' ZDOs. The settled flag rides on a global key, so it persists in the world
+save and reaches clients without any sync of the mod's own. Guidance prefers a
+settled actor, then the nearest one currently standing, and finally the nearest
+candidate site.
 
-> **New worlds only.** On a world where vanilla has already placed a camp, the
-> other candidates are gone and there is nothing left to defer. The system
-> disables itself and says so once in the log; compasses carry on working.
+> **New worlds only.** On a world where vanilla has already placed a trader camp,
+> the other candidates are gone and there is nothing left to defer. The system
+> disables itself and says so once in the log; compasses carry on working. A
+> forge that was already placed on a managed world is locked in place instead.
 
 ### Cooldowns
 
@@ -276,7 +287,8 @@ would refill the uses.
 
 ## Status
 
-**1.6.0** — in use on a dedicated server.
+**1.7.1** — Fix Mountain lorestone matching (`RuneStone_Mountains`). Forge of
+Potential compass + deferred settlement landed in 1.7.0.
 
 Verified end to end against a real dedicated server: the plugin registers on
 both sides, the loot exchange survives a genuine network hop, and looting,
