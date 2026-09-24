@@ -120,6 +120,9 @@ Dedicated servers (`-batchmode`) only use `config/bepinex/` unless that file is 
   ThunderStorm target chance (default **21%**, vanilla ~7%).
 - `Difficulty.EnableUncapHealthScaling` — keep effective enemy HP scaling past
   5 nearby players (default **true**). Enemy damage stays capped.
+- `Forge of Potential.EnableIntendedOdds` (default **true**) — restore
+  65% success / 25% downgrade / 10% break. Vanilla idols make every failure
+  destroy; turn off when the game ships a real fix.
 
 ### Multiplayer config sync
 
@@ -166,6 +169,10 @@ No `devcommands` required.
 - Difficulty: Harmony postfix on `Game.GetDifficultyDamageScaleEnemy` recounts
   nearby players without the 5-player clamp when
   `Difficulty.EnableUncapHealthScaling` is on. Damage scaling is unchanged.
+- Forge of Potential: ObjectDB sets every idol’s `m_breakChance` to `0.1` when
+  `Forge of Potential.EnableIntendedOdds` is on (vanilla prefabs use `1.0`, so
+  every fail destroys). Quality-1 refinements force a break on failure so the
+  vanilla quality-0 downgrade path never runs. See `docs/forge-of-potential.md`.
 - Two-handed +10% damage must take `HitData.DamageTypes` by **ref**. It is a
   struct; the first implementation mutated a copy, so tooltips and hits stayed
   at vanilla numbers (iron sledge 55).

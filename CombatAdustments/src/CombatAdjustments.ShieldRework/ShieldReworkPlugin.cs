@@ -15,7 +15,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "Abortipus.CombatAdjustments.ShieldRework";
     public const string PluginName = "Combat Adjustments - Shield Rework";
-    public const string PluginVersion = "0.8.1";
+    public const string PluginVersion = "0.8.3";
 
     // Design anchors (max quality). See docs/shield-rework-requirements.md.
     public const float FlametalTowerGrant = 70f;
@@ -70,6 +70,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
     internal static ConfigEntry<float> OceanThunderStormChance = null!;
 
     internal static ConfigEntry<bool> EnableUncapHealthScaling = null!;
+
+    internal static ConfigEntry<bool> EnableForgeOfPotentialOdds = null!;
 
     /// <summary>Server-authoritative settings, shared with the other Mushroom mods.</summary>
     internal static ConfigSync Sync = null!;
@@ -156,6 +158,11 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         EnableUncapHealthScaling = ModConfig.Bind("Difficulty", "EnableUncapHealthScaling", true,
             "Let effective enemy HP keep scaling with nearby players past vanilla's 5-player cap (+30% per extra player). Enemy damage dealt stays capped at 5.");
 
+        EnableForgeOfPotentialOdds = ModConfig.Bind("Forge of Potential", "EnableIntendedOdds", true,
+            "Restore code-default Forge of Potential odds: 65% success, 25% downgrade, 10% break. "
+            + "Vanilla idol prefabs set break chance to 1 so every failure destroys the item. "
+            + "Turn off when IronGate ships a real fix.");
+
         Sync.Register(
             EnableStaggerGrant,
             EnableTowerArmorBonus,
@@ -180,7 +187,8 @@ public class ShieldReworkPlugin : BaseUnityPlugin
             SailingCalmWindCeiling,
             EnableOceanStormChance,
             OceanThunderStormChance,
-            EnableUncapHealthScaling);
+            EnableUncapHealthScaling,
+            EnableForgeOfPotentialOdds);
 
         // Deliberately not synced. GrantTableVersion is server-only reseed
         // bookkeeping, SyncConfigInMultiplayer is the opt-out itself - a client
@@ -206,6 +214,9 @@ public class ShieldReworkPlugin : BaseUnityPlugin
 
         HookOceanWeatherConfigChange(EnableOceanStormChance);
         HookOceanWeatherConfigChange(OceanThunderStormChance);
+
+        // Idol break chances are baked into ObjectDB shared data, same as feasts.
+        HookForgeOddsConfigChange(EnableForgeOfPotentialOdds);
 
         ApplyOverlayToStaticEntries();
 
@@ -255,6 +266,7 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         ShieldStats.ApplyToObjectDB(ObjectDB.instance);
         WeaponBlockStats.ApplyToObjectDB(ObjectDB.instance);
         FeastStats.ApplyToObjectDB(ObjectDB.instance);
+        ForgeOfPotential.ApplyToObjectDB(ObjectDB.instance);
     }
 
     private static void NotifyPlayer(string message)
@@ -269,6 +281,13 @@ public class ShieldReworkPlugin : BaseUnityPlugin
         {
             if (ObjectDB.instance != null)
                 FeastStats.ApplyToObjectDB(ObjectDB.instance);
+        };
+
+    private static void HookForgeOddsConfigChange<T>(ConfigEntry<T> entry) =>
+        entry.SettingChanged += (_, __) =>
+        {
+            if (ObjectDB.instance != null)
+                ForgeOfPotential.ApplyToObjectDB(ObjectDB.instance);
         };
 
     private static void HookOceanWeatherConfigChange<T>(ConfigEntry<T> entry) =>
