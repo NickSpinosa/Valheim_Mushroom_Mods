@@ -143,6 +143,7 @@ internal static class SpawnerSetup
             scene,
             mobPrefabName: "Surtling",
             vanillaCreatureSpawnerName: "Spawner_imp_respawn",
+            onGroundOnly: false,
             label: "Fire pillar");
 
         AttachBorrowedVisual(
@@ -161,6 +162,9 @@ internal static class SpawnerSetup
             scene,
             mobPrefabName: "BlobTar",
             vanillaCreatureSpawnerName: "Spawner_BlobTar_respawn_30",
+            // Like the cloned nests: never spawn onto build pieces, so it can sit in a
+            // floored trap with one open cell.
+            onGroundOnly: true,
             label: "Bone pile (tar blob)");
 
         // Tar pit bones — not the Evil bone pile mesh.
@@ -178,6 +182,7 @@ internal static class SpawnerSetup
         ZNetScene scene,
         string mobPrefabName,
         string vanillaCreatureSpawnerName,
+        bool onGroundOnly,
         string label)
     {
         GameObject mob = scene.GetPrefab(mobPrefabName);
@@ -215,8 +220,10 @@ internal static class SpawnerSetup
             spawnArea.m_spawnEffects = template.m_spawnEffects;
         }
 
-        // Player bases often mark ground as blocked; don't require unblocked ground.
-        spawnArea.m_onGroundOnly = false;
+        // SpawnArea.FindSpawnPoint rejects a point when a straight-down ray from 2 km up
+        // hits Default/static_solid/Default_small/piece. Terrain is not in that mask, so
+        // a rock buried under the spawner blocks it as surely as a floor does.
+        spawnArea.m_onGroundOnly = onGroundOnly;
 
         // First spawn ~20s after place, then every 20s (SpawnArea timer ≈ real seconds).
         spawnArea.m_spawnIntervalSec = 20f;
@@ -250,7 +257,7 @@ internal static class SpawnerSetup
 
         CraftableSpawnersPlugin.Dbgl(
             $"{label} SpawnArea: interval={spawnArea.m_spawnIntervalSec}s " +
-            $"trigger={spawnArea.m_triggerDistance} maxNear={spawnArea.m_maxNear} maxTotal={spawnArea.m_maxTotal} " +
+            $"onGroundOnly={spawnArea.m_onGroundOnly} trigger={spawnArea.m_triggerDistance} maxNear={spawnArea.m_maxNear} maxTotal={spawnArea.m_maxTotal} " +
             $"prefab={(spawnArea.m_prefabs[0].m_prefab ? spawnArea.m_prefabs[0].m_prefab.name : "null")}");
     }
 
