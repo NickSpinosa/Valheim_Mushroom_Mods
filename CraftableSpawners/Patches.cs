@@ -89,6 +89,35 @@ static class Patches
         }
     }
 
+    // Registers cs_diag, see DiagCommand.cs.
+    [HarmonyPatch(typeof(Terminal), "InitTerminal")]
+    static class TerminalInitTerminal
+    {
+        static bool registered;
+
+        static void Postfix()
+        {
+            if (registered)
+                return;
+            registered = true;
+
+            // ConsoleCommand's constructor changes shape across game updates; a
+            // MissingMethodException escaping here would take other mods' commands too.
+            try
+            {
+                _ = new Terminal.ConsoleCommand(
+                    "cs_diag",
+                    "Craftable Spawners: report why spawners within 40 m are or are not spawning",
+                    DiagCommand.Run,
+                    isCheat: false);
+            }
+            catch (System.Exception ex)
+            {
+                CraftableSpawnersPlugin.Log.LogError("Could not register cs_diag: " + ex);
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(Player), "RemovePiece")]
     static class PlayerRemovePiece
     {
