@@ -33,6 +33,7 @@ namespace SeparateSpawns
 
             Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
             Logger.LogInfo($"Config layout: {(ModPaths.UseDedicatedConfigLayout() ? "dedicated server" : "client")}");
+            Logger.LogInfo($"Config root mode: {ModPaths.GetConfigRootMode()} (source: {ModPaths.GetConfigRootModeSource()})");
             Logger.LogInfo($"Config file: {configPath}");
             Logger.LogInfo($"Client config root: {ModPaths.GetClientConfigRoot()}");
             Logger.LogInfo($"Dedicated config root: {ModPaths.GetDedicatedConfigRoot()}");
