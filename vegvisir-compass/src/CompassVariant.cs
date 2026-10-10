@@ -19,9 +19,10 @@ namespace VegvisirCompass
         internal const int MysteriousLocation = 2;
         internal const int HildirQuest = 3;
         internal const int ForgeOfPotential = 4;
+        internal const int JotunInvasion = 5;
 
         /// <summary>Number of icons the prefab is given.</summary>
-        internal const int Count = 5;
+        internal const int Count = 6;
 
         // Tint per variant. Boss wears the original artwork untinted, so it has no
         // entry. Deliberately fixed rather than configurable: a compass pack is only
@@ -31,6 +32,7 @@ namespace VegvisirCompass
         internal static readonly Color MysteryTint = new Color(0.88f, 0.27f, 0.20f);        // #E04533
         internal static readonly Color HildirQuestTint = new Color(0.64f, 0.38f, 0.92f);    // #A361EB
         internal static readonly Color ForgeTint = new Color(0.55f, 0.78f, 0.92f);          // #8CC7EB mountain ice
+        internal static readonly Color JotunInvasionTint = new Color(0.18f, 0.78f, 0.72f);  // #2EC7B8 malicious ice
 
         /// <summary>
         /// Ashlands Mysterious Locations, the Dyrnwyn chain. Matched by prefix so all

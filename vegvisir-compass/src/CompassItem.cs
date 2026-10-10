@@ -36,6 +36,15 @@ namespace VegvisirCompass
             "vegvisir that yielded it.";
 
         /// <summary>
+        /// Tooltip for a compass that is not spent and has no range. It cannot live on
+        /// the prefab: m_description is shared by every compass, and the ordinary ones
+        /// still burn away near the stone that yielded them.
+        /// </summary>
+        internal const string LiveDescription =
+            "A shard of malicious ice, cold and unworn. Read it anywhere and the runes " +
+            "will turn you toward the nearest Jotun invasion. It does not burn away.";
+
+        /// <summary>
         /// Vanilla item the compass borrows its in-world model from. Only the model:
         /// the icon is our own, embedded in the assembly. Fixed rather than
         /// configurable, since changing it was a way to break the item rather than to
@@ -55,6 +64,13 @@ namespace VegvisirCompass
         /// location names are distinct per target.
         /// </summary>
         private const string LocationKey = "vc_loc";
+
+        /// <summary>
+        /// Persistent-event name this compass tracks, e.g. the Jotun invasion.
+        /// Present only on compasses that resolve a target when they are read,
+        /// rather than carrying a position baked in at loot time.
+        /// </summary>
+        private const string EventKey = "vc_event";
 
         /// <summary>Position of the Vegvisir this compass was looted from.</summary>
         private const string OriginKey = "vc_origin";
@@ -159,6 +175,66 @@ namespace VegvisirCompass
 
             target = new Vector3(x, y, z);
             return true;
+        }
+
+        /// <summary>
+        /// True for a compass that looks up its target when read. Those are not spent
+        /// and are not limited to a stone's neighbourhood.
+        /// </summary>
+        internal static bool IsLive(ItemDrop.ItemData item)
+        {
+            return !string.IsNullOrEmpty(GetEventName(item));
+        }
+
+        internal static string GetEventName(ItemDrop.ItemData item)
+        {
+            if (item?.m_customData != null && item.m_customData.TryGetValue(EventKey, out string name))
+            {
+                return name;
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Marks a compass as tracking a persistent event. The location key is the
+        /// event name, so the ordinary one-per-target carry rule covers it too.
+        /// </summary>
+        internal static void SetLive(ItemDrop.ItemData item, string eventName, string label)
+        {
+            item.m_customData[EventKey] = eventName ?? "";
+            item.m_customData[BossKey] = label ?? "";
+            item.m_customData[LocationKey] = eventName ?? "";
+        }
+
+        /// <summary>
+        /// Swaps in the unspent compass's wording and drops the durability line.
+        /// Durability stays on the shared prefab because the other compasses use it
+        /// as their use counter; this one is kept at full so the inventory bar,
+        /// which only appears once durability has fallen, never draws.
+        /// </summary>
+        /// <summary>
+        /// Tooltip body for the inventory. Ordinary compasses pass through; a live
+        /// one has its description and durability line rewritten.
+        /// </summary>
+        internal static string FormatTooltip(ItemDrop.ItemData item)
+        {
+            string tooltip = item.GetTooltip();
+            return IsLive(item) ? FormatLiveTooltip(tooltip) : tooltip;
+        }
+
+        internal static string FormatLiveTooltip(string tooltip)
+        {
+            if (string.IsNullOrEmpty(tooltip)) return LiveDescription;
+
+            string result = tooltip.Replace(Description, LiveDescription);
+            int marker = result.IndexOf("$item_durability", System.StringComparison.Ordinal);
+            if (marker < 0) return result;
+
+            int start = result.LastIndexOf('\n', marker);
+            if (start < 0) start = marker;
+            int end = result.IndexOf('\n', marker);
+            if (end < 0) end = result.Length;
+            return result.Remove(start, end - start);
         }
 
         internal static string GetBossName(ItemDrop.ItemData item)
@@ -382,6 +458,7 @@ namespace VegvisirCompass
             icons[CompassVariant.MysteriousLocation] = TintedSprite(baseIcon, CompassVariant.MysteryTint);
             icons[CompassVariant.HildirQuest] = TintedSprite(baseIcon, CompassVariant.HildirQuestTint);
             icons[CompassVariant.ForgeOfPotential] = TintedSprite(baseIcon, CompassVariant.ForgeTint);
+            icons[CompassVariant.JotunInvasion] = TintedSprite(baseIcon, CompassVariant.JotunInvasionTint);
 
             // A missing tint would leave a null in the array and throw when the icon is
             // drawn, so fall back to the untinted original for any that failed.
@@ -535,6 +612,73 @@ namespace VegvisirCompass
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Drops one compass in the world. Used when the thing that yields it is a
+        /// destructible the server owns: there is no local player to hand it to, and
+        /// the drop has to exist for whoever walks up to it.
+        ///
+        /// snapToGround is for open ground. Mörkhalla is an interior, and
+        /// GetGroundHeight there is the terrain outside the dungeon, which would
+        /// lift the compass out of the hall.
+        /// </summary>
+        internal static void SpawnLive(Vector3 position, string eventName, string label, bool cheated,
+                                        bool snapToGround)
+        {
+            if (_prefab == null)
+            {
+                EnsureRegistered(ObjectDB.instance);
+            }
+
+            if (_prefab == null)
+            {
+                Plugin.Log.LogWarning("Could not drop an invasion compass - the item prefab is not registered.");
+                return;
+            }
+
+            if (snapToGround && ZoneSystem.instance != null)
+            {
+                float ground = ZoneSystem.instance.GetGroundHeight(position);
+                if (position.y < ground)
+                {
+                    position.y = ground + 0.1f;
+                }
+            }
+
+            position += Vector3.up * 0.5f;
+
+            GameObject go = Object.Instantiate(
+                _prefab, position, Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f));
+            go.SetActive(true);
+
+            ItemDrop drop = go.GetComponent<ItemDrop>();
+            if (drop == null)
+            {
+                Plugin.Log.LogWarning("Invasion compass prefab has no ItemDrop.");
+                Object.Destroy(go);
+                return;
+            }
+
+            ItemDrop.OnCreateNew(drop, cheated);
+
+            ItemDrop.ItemData item = drop.m_itemData;
+            item.m_stack = 1;
+            item.m_durability = item.GetMaxDurability(item.m_quality);
+            SetLive(item, eventName, label);
+
+            if (_variantsInstalled)
+            {
+                item.m_variant = CompassVariant.JotunInvasion;
+            }
+
+            ZNetView view = go.GetComponent<ZNetView>();
+            if (view != null && view.IsValid() && view.IsOwner())
+            {
+                ItemDrop.SaveToZDO(item, view.GetZDO());
+            }
+
+            Plugin.Debug($"Dropped an invasion compass for {eventName} at {position}.");
         }
     }
 }

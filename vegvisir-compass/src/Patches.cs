@@ -72,6 +72,7 @@ namespace VegvisirCompass
             try
             {
                 CompassRpc.Register();
+                InvasionCompass.Register();
 
                 // Safety net. If a misbehaving mod aborted the ZNetScene.Awake postfix
                 // chain before we got there, the prefab would not be networkable and
@@ -96,6 +97,7 @@ namespace VegvisirCompass
         {
             LootCooldownRegistry.Reset();
             CompassRpc.Reset();
+            InvasionCompass.Reset();
             MerchantPlacement.Reset();
 
             // Belt and braces. The lockout expires on its own deadline anyway, but
@@ -434,7 +436,7 @@ namespace VegvisirCompass
 
             try
             {
-                tooltip.Set(CompassItem.GetDisplayName(item), item.GetTooltip(), __instance.m_tooltipAnchor);
+                tooltip.Set(CompassItem.GetDisplayName(item), CompassItem.FormatTooltip(item), __instance.m_tooltipAnchor);
                 return false;
             }
             catch (System.Exception e)
@@ -659,17 +661,72 @@ namespace VegvisirCompass
     }
 
     /// <summary>
+    /// Notes where the hall ice stood, before vanilla starts the invasion.
+    ///
+    /// The prefix has to run first. On the server, InvokeRoutedRPC delivers a
+    /// self-targeted call inline, so TriggerEvent has already finished by the
+    /// time a postfix on this method runs. The invasion ice (_stopEvent) is what
+    /// the compass is for finding, and breaking it drops nothing.
+    /// </summary>
+    [HarmonyPatch(typeof(TriggerPersistentEventOnDestroy), nameof(TriggerPersistentEventOnDestroy.OnDestroyed))]
+    internal static class InvasionCrystalPatch
+    {
+        [HarmonyPrefix]
+        internal static void Prefix(TriggerPersistentEventOnDestroy __instance)
+        {
+            try
+            {
+                if (__instance == null || __instance._stopEvent) return;
+
+                ZNetView view = __instance.GetComponent<ZNetView>();
+                if (view == null || !view.IsOwner()) return;
+
+                bool cheated = view.GetZDO() != null
+                    && view.GetZDO().GetBool(ZDOVars.s_cheated)
+                    && !PlayerProfile.s_bypassCheatChecks;
+                InvasionCompass.NoteHall(__instance.transform.position, cheated, __instance._eventInternalName);
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogError("Invasion compass note failed: " + e);
+            }
+        }
+    }
+
+    /// <summary>Drops the compass in the hall once the invasion has been placed.</summary>
+    [HarmonyPatch(typeof(PersistentEventSystem), nameof(PersistentEventSystem.RPC_RequestStartEvent))]
+    internal static class InvasionStartPatch
+    {
+        [HarmonyPrefix]
+        internal static void Prefix()
+        {
+            try { InvasionCompass.BeforeStart(); }
+            catch (System.Exception e) { Plugin.Log.LogError("Invasion start note failed: " + e); }
+        }
+
+        // A finalizer rather than a postfix: a failed placement throws inside the
+        // RPC, and the hall note still has to be discarded or it would attach to
+        // a later invasion.
+        [HarmonyFinalizer]
+        internal static System.Exception Finalizer(long sender, System.Exception __exception)
+        {
+            try { InvasionCompass.AfterStart(sender); }
+            catch (System.Exception e) { Plugin.Log.LogError("Invasion compass drop failed: " + e); }
+            return __exception;
+        }
+    }
+
+    /// <summary>
     /// Handles using a compass: aim the camera at the stored target, spend a use,
-    /// and destroy the item once it is spent.
+    /// and destroy the item once it is spent. A compass that tracks a live invasion
+    /// is aimed the same way and then left in the inventory.
     /// </summary>
     [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.UseItem))]
     internal static class UseItemPatch
     {
         /// <summary>
-        /// Minimum seconds between uses, so one keypress cannot burn two. An
-        /// implementation detail rather than a setting: there is no reason to tune it,
-        /// and nothing to gain from doing so - a use still costs a durability point
-        /// either way.
+        /// Minimum seconds between uses, so one keypress cannot burn two or swing
+        /// the camera twice. An implementation detail rather than a setting.
         /// </summary>
         private const float SpamGuardSeconds = 1f;
 
@@ -698,6 +755,25 @@ namespace VegvisirCompass
 
             _lastUseTime = Time.time;
 
+            if (CompassItem.IsLive(item))
+            {
+                if (!InvasionCompass.TryGetNearest(
+                        CompassItem.GetEventName(item), player.transform.position, out Vector3 liveTarget))
+                {
+                    player.Message(MessageHud.MessageType.Center, "The runes find nothing");
+                    Plugin.Debug("Invasion compass found no active event.");
+                    return false;
+                }
+
+                AimAt(player, liveTarget);
+
+                string liveName = CompassItem.GetLocalizedBossName(item);
+                player.Message(MessageHud.MessageType.Center,
+                    string.IsNullOrEmpty(liveName) ? InvasionCompass.FallbackLabel : liveName);
+                Plugin.Debug($"Invasion compass aimed at {liveTarget}.");
+                return false;
+            }
+
             if (!CompassItem.TryGetTarget(item, out Vector3 target))
             {
                 player.Message(MessageHud.MessageType.Center, "The runes are blank");
@@ -723,16 +799,52 @@ namespace VegvisirCompass
                 Plugin.Debug($"Compass in range: {distance:0}m from its stone, limit {range:0}m.");
             }
 
-            // Turn to face the boss, and level the view on the horizon.
-            //
-            // SetLookDir only moves a Player's yaw. Pitch lives in the separate
-            // private field Player.m_lookPitch, which the eye rotation is rebuilt
-            // from every frame:
-            //
-            //     m_eye.rotation = m_lookYaw * Quaternion.Euler(m_lookPitch, 0, 0)
-            //
-            // so no vector passed to SetLookDir can affect it. Levelling the view
-            // means zeroing that field directly.
+            AimAt(player, target);
+
+            // Pin names come from the Vegvisir as localization tokens such as
+            // "$enemy_dragon", so they have to be resolved before being shown.
+            string bossName = Localization.instance.Localize(CompassItem.GetBossName(item));
+            Inventory owning = inventory ?? player.GetInventory();
+
+            item.m_durability -= 1f;
+            bool spent = item.m_durability <= 0f;
+
+            if (spent)
+            {
+                owning?.RemoveItem(item);
+                player.Message(MessageHud.MessageType.Center,
+                    string.IsNullOrEmpty(bossName)
+                        ? "The compass crumbles to dust"
+                        : bossName + " - the compass crumbles to dust");
+                Plugin.Debug($"Compass spent on {bossName}; item destroyed.");
+            }
+            else
+            {
+                int remaining = Mathf.Max(0, Mathf.RoundToInt(item.m_durability));
+                player.Message(MessageHud.MessageType.Center,
+                    string.IsNullOrEmpty(bossName)
+                        ? $"{remaining} use(s) remaining"
+                        : $"{bossName} - {remaining} use(s) remaining");
+                Plugin.Debug($"Compass used on {bossName}; {remaining} use(s) remaining.");
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Turns the player to face a point and levels the view on the horizon.
+        ///
+        /// SetLookDir only moves a Player's yaw. Pitch lives in the separate
+        /// private field Player.m_lookPitch, which the eye rotation is rebuilt
+        /// from every frame:
+        ///
+        ///     m_eye.rotation = m_lookYaw * Quaternion.Euler(m_lookPitch, 0, 0)
+        ///
+        /// so no vector passed to SetLookDir can affect it. Levelling the view
+        /// means zeroing that field directly.
+        /// </summary>
+        private static void AimAt(Player player, Vector3 target)
+        {
             Vector3 direction = target - player.transform.position;
             direction.y = 0f;
 
@@ -763,35 +875,6 @@ namespace VegvisirCompass
                 player.m_lookPitch = 0f;
                 Plugin.Debug($"Levelled the view, pitch {previousPitch:0.#} -> 0.");
             }
-
-            // Pin names come from the Vegvisir as localization tokens such as
-            // "$enemy_dragon", so they have to be resolved before being shown.
-            string bossName = Localization.instance.Localize(CompassItem.GetBossName(item));
-            Inventory owning = inventory ?? player.GetInventory();
-
-            item.m_durability -= 1f;
-            bool spent = item.m_durability <= 0f;
-
-            if (spent)
-            {
-                owning?.RemoveItem(item);
-                player.Message(MessageHud.MessageType.Center,
-                    string.IsNullOrEmpty(bossName)
-                        ? "The compass crumbles to dust"
-                        : bossName + " - the compass crumbles to dust");
-                Plugin.Debug($"Compass spent on {bossName}; item destroyed.");
-            }
-            else
-            {
-                int remaining = Mathf.Max(0, Mathf.RoundToInt(item.m_durability));
-                player.Message(MessageHud.MessageType.Center,
-                    string.IsNullOrEmpty(bossName)
-                        ? $"{remaining} use(s) remaining"
-                        : $"{bossName} - {remaining} use(s) remaining");
-                Plugin.Debug($"Compass used on {bossName}; {remaining} use(s) remaining.");
-            }
-
-            return false;
         }
     }
 }

@@ -7,6 +7,11 @@ Interacting with a Vegvísir no longer reveals the boss on your map. Instead you
 loot a **Vegvísir Compass** — a limited-use item that swings your view toward
 the boss that stone points at, then crumbles once it is spent.
 
+Breaking the Malicious Ice at the bottom of **Mörkhalla** drops a different
+compass, right there in the hall, and starts a Jotun invasion somewhere in the
+world. The compass is how you find that invasion. It is not spent, works at any
+distance, and turns you toward the nearest invasion that is still standing.
+
 ## What it does
 
 - Interacting with a Vegvísir grants a **Vegvísir Compass** instead of revealing
@@ -26,7 +31,8 @@ the boss that stone points at, then crumbles once it is spent.
   and is destroyed once spent.
 - A compass only works **within 350m of the Vegvísir it came from**, measured on
   the X/Z plane so height is ignored. Out of range costs nothing: no use is
-  spent and the camera does not move.
+  spent and the camera does not move. The Jotun invasion compass has no such
+  limit.
 - Aiming turns you to face the boss and levels the view on the horizon, rather
   than tilting up a mountain or down into a valley.
 - A **1 second guard** stops a double-keypress burning two uses at once.
@@ -42,10 +48,19 @@ the boss that stone points at, then crumbles once it is spent.
 - Merchants **settle where you trade with them**, not at the first camp anyone
   walks past. The Forge of Potential **settles when you open it**, the same way.
   New worlds only (or worlds the mod has managed from the start).
+- **Jotun invasions**: destroying the Malicious Ice at the bottom of Mörkhalla
+  drops one compass where that ice stood, before you leave the hall. It is not
+  destroyed on use and can be read anywhere. Each reading turns you toward the
+  nearest invasion that still has its ice, which is how you find the crystal
+  the hall just called down. Breaking that crystal ends the invasion and does
+  not drop another compass. You can carry one, the same as any other compass; a
+  later hall still drops one, and it waits on the floor until you are not
+  already holding one. If three invasions are already active, the hall ice
+  starts no new one, and the compass still drops so those can be found.
 - Icons are **coloured by what they point at**, so a full pack stays readable at
   a glance: gold for bosses, grey for merchants, red for Ashlands Mysterious
   Locations, purple for Hildir's quest dungeons, ice-blue for the Forge of
-  Potential.
+  Potential, teal for Jotun invasions.
 
 The map is never touched. See [No map, really](#no-map-really) for why that
 needed care.
@@ -285,10 +300,17 @@ Uses ride on item durability, which gives a native tooltip count and persists
 through the item's ZDO. `m_canBeReparied` is disabled — without it, a workbench
 would refill the uses.
 
+The Jotun invasion compass shares that prefab, so durability cannot be turned
+off for it alone. It is left at full, which is the condition under which the
+inventory hides the bar, and its tooltip leaves the durability line out. Reading
+it does not lower the value.
+
 ## Status
 
-**1.7.1** — Fix Mountain lorestone matching (`RuneStone_Mountains`). Forge of
-Potential compass + deferred settlement landed in 1.7.0.
+**1.8.0** — The Malicious Ice at the bottom of Mörkhalla drops a compass that
+is not spent and points at the nearest Jotun invasion still standing, so the
+invasion can be found. 1.7.1 fixed Mountain lorestone matching
+(`RuneStone_Mountains`).
 
 Verified end to end against a real dedicated server: the plugin registers on
 both sides, the loot exchange survives a genuine network hop, and looting,

@@ -131,3 +131,48 @@ three settings that remain and matter (`LootCooldownSeconds`, `UsesPerCompass`,
 guard and baked into each compass as it is granted, so a client copy is never
 consulted. This mod does not use MushroomSync because there is nothing left to
 sync.
+
+## The invasion compass is not a baked target
+
+Breaking the Malicious Ice at the bottom of Mörkhalla and breaking the one that
+then appears in the world are the same component,
+`TriggerPersistentEventOnDestroy`. The flag `_stopEvent` is the whole
+difference: unset, `OnDestroyed` calls `TriggerEvent` and an invasion is placed;
+set, it calls `StopEvent` and that invasion ends. The compass drops on the
+first path, in the hall, because it exists to find the invasion. The second
+path is the thing being found. Matching the prefab name would not do it — both
+ices are that component, and which one is which is the flag.
+
+The aim position is resolved when the compass is read, from
+`PersistentEventSystem.m_activePersistentEvents`. Baking the site at drop time
+would freeze whichever invasion was nearest while you were still standing in
+the hall. The list is already on the client: the server pushes it so the no-map
+particle trail can point, which is why reading this compass stays local like
+every other one.
+
+Point at active events, not at `FimbulLocation01` in `ZoneSystem`. Stopping an
+event does not remove the location it spawned, and a cleared site has no ice
+left to find. Up to three invasions can be active; the compass takes the
+nearest of those. Vanilla refuses a fourth. The compass still drops, because
+the ones already standing are what it is for finding.
+
+The drop waits until the server has placed the invasion, and it is spawned at
+the hall ice rather than granted into an inventory. `TriggerEvent` sends only
+an event index, so the hall position goes in a separate RPC from a prefix.
+That order matters. Routed RPCs from one peer are applied in send order, and
+on the server a self-targeted `InvokeRoutedRPC` runs inline, so a postfix on
+`OnDestroyed` would be too late — `TriggerEvent` would already have returned.
+`GetGroundHeight` is not applied: inside Mörkhalla that height is the terrain
+outside the dungeon, and the compass would be lifted out of the hall.
+
+Two things that look like they should be per-item and are not. `m_description`
+and `m_useDurability` live on the shared prefab, so changing them for this
+compass would change every compass. The tooltip is rewritten at display time,
+and durability is left at maximum: the inventory bar is drawn only when
+durability has fallen below that, so a full bar never appears.
+
+Vanilla's trail in `PersistentEventSystemDirectionHelper` does not measure
+distance from the player. It compares `Vector3.Distance` to the candidate
+position's `.magnitude`, which is how far that point is from the world origin.
+Do not copy it. Horizontal distance from the player is the same rule the other
+compasses already use.
